@@ -694,7 +694,6 @@ spinner $!
 ###############EMRinger score #######################
 ############################################################################
 
-
 cat<<EOF > emringer.sh
 
 phenix.emringer last_frame.pdb $MAPIN > last_EMR.log
@@ -706,9 +705,10 @@ EOF
 sh emringer.sh &
 
 echo -n "
-Running Phenix.EMRinger on input and output PDB files"
+Calculating EMRinger scores for input and output PDB files.
+NB: if the resolution of the input map is above 4.5Å the EMRinger scores is not really a useful validation metric.
+"
 spinner $!
-
 
 ############################################################################
 ###############Displaying all the validation metrics #######################
@@ -745,7 +745,6 @@ CISLFR=$(grep -c cis 'procheck_last_frame_rsr.log')
 EMRINP=$(grep "EMRinger Score" "$PDB"_EMR.log | awk '{print $3}')
 EMRLF=$(grep "EMRinger Score" last_EMR.log | awk '{print $3}')
 EMRLFR=$(grep "EMRinger Score" last_rsr_EMR.log | awk '{print $3}')
-
 
 INP=INP
 LF=LF
