@@ -1,4 +1,4 @@
-testing2 atoms github package
+testing2 atoms github package again to se iff login is saved
 #!/bin/bash
 export LC_NUMERIC="en_US.UTF-8"
 trap "exit" INT TERM
