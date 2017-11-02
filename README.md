@@ -1,3 +1,2 @@
-# Namdiantor
+# Namdinator
 
-ss
