@@ -16,7 +16,6 @@ VMDMASTER="/opt/bioxray/programs/vmd-1.93"
 
 module load vmd-1.93
 module load namd-cuda-2.12
-module load rosetta_phenix_2016.32.58837 
 ############################################################################
 ############################################################################
 ############################################################################
@@ -49,7 +48,7 @@ ITEMP=300
 
 FTEMP=300
 
-EM=2000
+EM=200
 
 PROCS="$(( $(lscpu | grep ^CPU\(s\)\: | awk '{print $2}') / $(lscpu | grep ^Thread | awk '{print $4}') ))"
 
@@ -739,15 +738,15 @@ spinner $!
 cat<<EOF > rosetta_resi.sh
 
 per_residue_energies.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
-sort -k19 -n -r default.out > ${PDB}_perRes.sc
+sort -k21 -n -r default.out > ${PDB}_perRes.sc
 rm default.out
 
 per_residue_energies.linuxgccrelease -in:file:s last_frame.pdb > lf_ros_perRes.log
-sort -k19 -n -r default.out > last_frame_perRes.sc
+sort -k21 -n -r default.out > last_frame_perRes.sc
 rm default.out
 
 per_residue_energies.linuxgccrelease -in:file:s last_frame_rsr.pdb > lfrsr_ros_perRes.log 
-sort -k19 -n -r default.out > last_frame_rsr_perRes.sc
+sort -k21 -n -r default.out > last_frame_rsr_perRes.sc
 rm default.out
 
 EOF
@@ -759,9 +758,9 @@ Calculating Rosetta scores for individual residues in input and output PDB files
 "
 spinner $!
 
-awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $19, $20}' > pr.sc
-awk 'NR<=10' last_frame_perRes.sc | awk '{print $19, $20}' > pr2.sc
-awk 'NR<=10' last_frame_rsr_perRes.sc | awk '{print $19, $20}' > pr3.sc
+awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $3, $21}' > pr.sc
+awk 'NR<=10' last_frame_perRes.sc | awk '{print $3, $21}' > pr2.sc
+awk 'NR<=10' last_frame_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
 
 #ROSRESINP=$(awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $19, $20}')
 #ROSRESLF=$(awk 'NR<=10' last_frame_perRes.sc | awk '{print $19, $20}')
