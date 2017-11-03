@@ -48,7 +48,7 @@ ITEMP=300
 
 FTEMP=300
 
-EM=200
+EM=2000
 
 PROCS="$(( $(lscpu | grep ^CPU\(s\)\: | awk '{print $2}') / $(lscpu | grep ^Thread | awk '{print $4}') ))"
 
