@@ -3,9 +3,13 @@
 You need the following programs installed:
 
 VMD 1.93
+
 NAMD 2.12 cuda version
+
 Phenix pakacge
-procheck
+
+Procheck
+
 rosetta phenix 2016.32.58837 
 
 
