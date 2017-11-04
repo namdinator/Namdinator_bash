@@ -16,6 +16,7 @@ VMDMASTER="/opt/bioxray/programs/vmd-1.93"
 
 module load vmd-1.93
 module load namd-cuda-2.12
+module load rosetta_phenix_2016.32.58837 
 ############################################################################
 ############################################################################
 ############################################################################
@@ -538,6 +539,7 @@ if grep -F 'End of program' NAMD2_step1.log >/dev/null 2>&1 ; then
     vmd -dispdev text -eofexit <writepdb.tcl> writepdb.log
 
 fi
+
 ############################################################################
 ####################Remove hydrogens from last frame PDB####################
 ############################################################################
@@ -620,6 +622,13 @@ mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.tx
 mol new last_frame_rsr.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
 
+mol new fit_cryst_altered_autopsf.psf
+mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+
+set incre [ expr $NUMS/1000]
+for {set i 1} {\$i < \$incre} {incr i 1} { 
+         [atomselect top all frame \$i] writepdb frame\$i.pdb 
+ } 
 EOF
 
 echo -n "
@@ -643,8 +652,8 @@ cat ccc_frames.txt | gnuplot gnuplot_dumb.sh
 
 echo -n '
 Writing a prettified version of the above plot as a PNG (CCC_all_frames.png).
-'
 
+'
 cat<<EOF > gnuplot_png.sh
 
 set autoscale
@@ -663,6 +672,62 @@ CCC3=$(awk '{print $2}' < ccc_lastframe_rsr.txt)
 ############################################################################
 ###############Molprobity check of input and output PDB's###################
 ############################################################################
+cat<<EOF > clash_allframes.sh
+#!/bin/bash
+
+for i in \$(ls -1v frame*.pdb); do
+
+    f=\$(echo \$i| cut -d\. -f1)
+    
+    sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$i > \$f-bf.pdb
+done
+
+for i in \$(ls -1v frame*-bf.pdb); do
+
+    f=\$(echo \$i| cut -d\. -f1)
+  
+    phenix.clashscore \$i > \$f.log
+done
+
+ls -1v frame*-bf.log | xargs -d '\n' grep "clashscore" | sed -e "s/:clashscore =//g" | sed -e 's/-bf.log/.pdb/g' > all_frames_clash.txt
+
+EOF
+
+sh clash_allframes.sh &
+
+echo -n "
+Calculating Clashscores for all individual frames from the trajectory
+"
+spinner $!
+
+echo -n '
+Plotting the Clashscores for every frame of the trajectory simulation-step1.dcd'
+
+cat<<EOF > gnuplot_clas_dumb.sh
+set terminal dumb 110 35
+set xtics rotate
+plot "all_frames_clash.txt" using 2:xtic(1) w points pt "*" notitle
+EOF
+
+cat all_frames_clash.txt | gnuplot gnuplot_clas_dumb.sh
+
+echo -n '
+Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
+'
+cat<<EOF > gnuplot_clash_png.sh
+
+set autoscale
+set term png
+set xtics rotate
+set output "clash_all_frames.png"
+plot "all_frames_clash.txt" using 2:xtic(1) with lines notitle
+replot
+EOF
+
+cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
+
+
+
 cat<<EOF > molpro.sh
 
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
@@ -716,7 +781,7 @@ spinner $!
 
 cat<<EOF > rosetta.sh
 
-score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:scorefile ${PDB}.sc> ${PDB}_ros.log
+score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:scorefile ${PDB}.sc > ${PDB}_ros.log
 
 score_jd2.linuxgccrelease -in:file:s last_frame.pdb -out:file:scorefile last_frame.sc > lf_ros.log
 
@@ -804,9 +869,9 @@ EMRINP=$(grep "EMRinger Score" "$PDB"_EMR.log | awk '{print $3}')
 EMRLF=$(grep "EMRinger Score" last_EMR.log | awk '{print $3}')
 EMRLFR=$(grep "EMRinger Score" last_rsr_EMR.log | awk '{print $3}')
 
-ROSINP=$(awk 'NR==2' ${PDB}.sc | awk '{print $2}')
-ROSLF=$(awk 'NR==2' last_frame.sc | awk '{print $2}')
-ROSLFR=$(awk 'NR==2' last_frame_rsr.sc | awk '{print $2}')
+ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
+ROSLF=$(awk 'NR==3' last_frame.sc | awk '{print $2}')
+ROSLFR=$(awk 'NR==3' last_frame_rsr.sc | awk '{print $2}')
 
 
 INP=INP
@@ -827,20 +892,20 @@ CCC = Cross correlation coefficient between "$MAP"."$MAPEXT" and either of the a
 "
 
 echo ""
-printf "+---------------------------------------------+\n"
-printf "|                  | %6s | %6s | %6s |          \n" $INP $LF $LFR
-printf "+---------------------------------------------+\n"
-printf "|  Clashscore:     | %6s | %6s | %6s |          \n" $claINP $claLF $claLFR
-printf "|  Favored:        | %6s | %6s | %6s |          \n" $FAVINP $FAVLF $FAVLFR
-printf "|  Allowed :       | %6s | %6s | %6s |          \n" $ALWINP $ALWLF $ALWLFR
-printf "|  Outliers:       | %6s | %6s | %6s |          \n" $OUTINP $OUTLF $OUTLFR
-printf "|  C-beta dev:     | %6s | %6s | %6s |          \n" $CBEINP $CBELF $CBELFR
-printf "|  Rota-outliers:  | %6s | %6s | %6s |          \n" $ROTINP $ROTLF $ROTLFR
-printf "|  CCC:            | %.6s | %.6s | %.6s |          \n" $CCC1 $CCC2 $CCC3
-printf "|  Cis-Peptides:   | %6s | %6s | %6s |          \n" $CISINP $CISLF $CISLFR
-printf "|  EMRinger score: | %.7s| %.7s| %.7s|          \n" $EMRINP $EMRLF $EMRLFR
-printf "|  Rosetta score:  | %7s | %7s | %7s |          \n" $ROSINP $ROSLF $ROSLFR
-printf "+---------------------------------------------+\n"
+printf "+-------------------------------------------------------+\n"
+printf "|                  | %10s | %10s | %10s |          \n" $INP $LF $LFR
+printf "+-------------------------------------------------------+\n"
+printf "|  Clashscore:     | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR
+printf "|  Favored:        | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR
+printf "|  Allowed :       | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR
+printf "|  Outliers:       | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR
+printf "|  C-beta dev:     | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR
+printf "|  Rota-outliers:  | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR
+printf "|  CCC:            | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7}
+printf "|  Cis-Peptides:   | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR
+printf "|  EMRinger score: | %10s | %10s | %10s |          \n" $EMRINP $EMRLF $EMRLFR
+printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" $ROSINP $ROSLF $ROSLFR
+printf "+-------------------------------------------------------+\n"
 echo ""
 
 
@@ -848,7 +913,7 @@ paste pr.sc pr2.sc > tmp.sc
 paste tmp.sc pr3.sc > perRes_scores_all.sc
 rm tmp.sc
 
-sed -i '1s/^/Score_inp Resid_inp Score_LF Resid_LF Score_LFR Resid_LFR\n/' perRes_scores_all.sc
+sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
 
 echo -n "Displaying the 10 residues with the highest individuel rosetta score from each PDB file:
 
@@ -882,6 +947,7 @@ mv emringer.sh $DIREC3/
 mv last_frame_his.pdb $DIREC1/
 mv last_frame_bf.pdb $DIREC1/
 mv last_frame_nohydro.pdb $DIREC1/
+mv frame*.pdb $DIREC1/
 mv cleanup.sh $DIREC3/
 
 mv $PDB.new $DIREC2/
