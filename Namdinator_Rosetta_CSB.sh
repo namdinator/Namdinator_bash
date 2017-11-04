@@ -49,7 +49,7 @@ ITEMP=300
 
 FTEMP=300
 
-EM=2000
+EM=200
 
 PROCS="$(( $(lscpu | grep ^CPU\(s\)\: | awk '{print $2}') / $(lscpu | grep ^Thread | awk '{print $4}') ))"
 
@@ -622,7 +622,7 @@ mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.tx
 mol new last_frame_rsr.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
 
-mol new fit_cryst_altered_autopsf.psf
+mol new ${PDB}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 
 set incre [ expr $NUMS/1000]
@@ -644,6 +644,7 @@ Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
 
 cat<<EOF > gnuplot_dumb.sh
 set terminal dumb 110 35
+unset xtics
 plot "ccc_frames.txt" using 1:2 w points pt "*" notitle
 EOF
 
@@ -655,9 +656,7 @@ Writing a prettified version of the above plot as a PNG (CCC_all_frames.png).
 
 '
 cat<<EOF > gnuplot_png.sh
-
-set autoscale
-set term png
+set term png size 1400,800
 set output "CCC_all_frames.png"
 plot "ccc_frames.txt" using 1:2 with lines notitle
 replot
