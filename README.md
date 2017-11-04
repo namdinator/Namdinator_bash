@@ -6,7 +6,7 @@ VMD 1.93
 
 NAMD 2.12 cuda version
 
-Phenix pakacge
+Phenix pakcage
 
 Procheck
 
