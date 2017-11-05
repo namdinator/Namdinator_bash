@@ -947,6 +947,7 @@ mv last_frame_his.pdb $DIREC1/
 mv last_frame_bf.pdb $DIREC1/
 mv last_frame_nohydro.pdb $DIREC1/
 mv frame*.pdb $DIREC1/
+mv clash_all_frames.sh $DIREC3/
 mv cleanup.sh $DIREC3/
 
 mv $PDB.new $DIREC2/
@@ -961,7 +962,7 @@ mv $PDB.sco $DIREC2/
 mv $PDB.out $DIREC2/
 mv $PDB.sum $DIREC2/
 mv fort.11 $DIREC2/
-mv CCC_all_frames.png $DIREC2/
+mv *.png $DIREC2/
 
 mv last_frame.new $DIREC2/
 mv last_frame_initial.geo $DIREC2/
@@ -986,6 +987,7 @@ mv last_frame_rsr.sco $DIREC2/
 mv last_frame_rsr.out $DIREC2/
 mv last_frame_rsr.sum $DIREC2/
 mv ccc_*.txt $DIREC1/
+mv all_frames_clash.txt $DIREC1/
 mv gnuplot*.sh $DIREC3/
 mv procheck.prm $DIREC2/
 mv phenix_rs.sh $DIREC3/
