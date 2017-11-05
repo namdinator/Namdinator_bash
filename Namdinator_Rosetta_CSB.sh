@@ -891,9 +891,9 @@ CCC = Cross correlation coefficient between "$MAP"."$MAPEXT" and either of the a
 "
 
 echo ""
-printf "+--------------------------------------------------------+\n"
+printf "+---------------------------------------------------------+\n"
 printf "|                  | %10s | %10s | %10s |          \n" $INP $LF $LFR
-printf "+--------------------------------------------------------+\n"
+printf "+---------------------------------------------------------+\n"
 printf "|  Clashscore:     | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR
 printf "|  Favored:        | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR
 printf "|  Allowed :       | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR
@@ -904,7 +904,7 @@ printf "|  CCC:            | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC
 printf "|  Cis-Peptides:   | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR
 printf "|  EMRinger score: | %10s | %10s | %10s |          \n" ${EMRINP:0:7} ${EMRLF:0:7} ${EMRLFR:0:7}
 printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7}
-printf "+--------------------------------------------------------+\n"
+printf "+---------------------------------------------------------+\n"
 echo ""
 
 
