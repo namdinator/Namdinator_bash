@@ -13,9 +13,11 @@ Procheck
 rosetta phenix 2016.32.58837 
 
 
-To run a default namdinator run with phenix.real_space_refine:
+To run Namdinator with default settings and a phenix.real_space_refine run:
 
 ./Namdiantor_Rosetta_CSB.sh -p input.pdb -m map.mrc -r 3.5 -x
+
+-p is the input PDB file (mandatory), -m is the input density in .mrc format (mandatory), -r is the resolution of the input density (mandatory) and -x is to turn on phenix.real.space refinement.
 
 
 
