@@ -775,16 +775,17 @@ NB: if the resolution of the input map is above 4.5Å the EMRinger score is not 
 spinner $!
 
 ############################################################################
-###############Rosetta score for whole model #######################
+###############Rosetta score for whole model against map ###################
 ############################################################################
 
 cat<<EOF > rosetta.sh
 
-score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:scorefile ${PDB}.sc > ${PDB}_ros.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -out:file:scorefile last_frame.sc > lf_ros.log
+score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:scorefile last_frame_rsr.sc > lfrsr_ros.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
@@ -914,7 +915,7 @@ rm tmp.sc
 
 sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
 
-echo -n "Displaying the 10 residues with the highest individuel rosetta score from each PDB file:
+echo -n "Displaying the 10 residues with the highest individual Rosetta score from each PDB file:
 
 "
 column -t perRes_scores_all.sc
