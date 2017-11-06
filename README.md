@@ -1,6 +1,8 @@
 # Namdinator
 
-You need the following programs installed:
+Namdinator is commandline tool for running a MDFF simualtion on an input PDB into a .MRC map.
+
+To run Namdinator you need the following programs installed:
 
 VMD 1.93
 
