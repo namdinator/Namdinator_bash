@@ -602,6 +602,11 @@ mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
 ############################################################################
 ###################Cross correlation coeficient check ######################
 ############################################################################
+
+
+
+ if [ $PHENIXRS -eq 1 ]; then
+
 cat<<EOF > CCC_check.tcl
 
 package require mdff
@@ -639,6 +644,47 @@ vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 
 spinner $!
 
+
+else
+
+
+cat<<EOF > CCC_check.tcl
+
+package require mdff
+package require multiplot
+
+mol new ${PDB}_autopsf.psf
+mol addfile simulation-step1.dcd waitfor all
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_frames.txt
+multiplot reset
+
+mol new ${PDB}_autopsf.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_input.txt
+multiplot reset
+
+mol new last_frame.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+
+mol new ${PDB}_autopsf.psf
+mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+
+set incre [ expr $NUMS/1000]
+for {set i 1} {\$i < \$incre} {incr i 1} { 
+         [atomselect top all frame \$i] writepdb frame\$i.pdb 
+ } 
+EOF
+
+echo -n "
+Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAP"."$MAPEXT"
+"
+
+vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
+
+spinner $!
+     
+fi
+
+
 echo -n '
 Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
 
@@ -664,9 +710,9 @@ EOF
 
 cat ccc_frames.txt | gnuplot gnuplot_png.sh
 
-CCC1=$(awk '{print $2}' < ccc_input.txt)
-CCC2=$(awk '{print $2}' < ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' < ccc_lastframe_rsr.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
 
 ############################################################################
 ###############Molprobity check of input and output PDB's###################
@@ -751,12 +797,20 @@ EOF
 sh molpro.sh &
 
 echo -n "
-Running Molprobity valdations tools on input and output PDB files"
+Running Molprobity valdations tools on input and output PDB files
+"
 spinner $!
 
 ############################################################################
 ###############EMRinger score #######################
 ############################################################################
+
+LIMEM=4.5
+
+RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
+LIMEM1=$(echo "($LIMEM*10)" |bc | cut -d\. -f1)
+
+if [ "$RES1" -lt  "$LIMEM1" ]; then
 
 cat<<EOF > emringer.sh
 
@@ -770,9 +824,24 @@ sh emringer.sh &
 
 echo -n "
 Calculating EMRinger scores for input and output PDB files.
-NB: if the resolution of the input map is above 4.5Å the EMRinger score is not a useful validation metric.
 "
 spinner $!
+
+EMRINP=$(grep "EMRinger Score" "$PDB"_EMR.log | awk '{print $3}')
+EMRLF=$(grep "EMRinger Score" last_EMR.log | awk '{print $3}')
+EMRLFR=$(grep "EMRinger Score" last_rsr_EMR.log | awk '{print $3}')
+
+else
+
+echo -n "
+ Omitting calculating EMRinger scores for input and output PDB files, as the stated resolution of the input map is above 4.5Å
+"
+
+EMRINP="n/a"
+EMRLF="n/a"
+EMRLFR="n/a"
+    
+fi
 
 ############################################################################
 ###############Rosetta score for whole model against map ###################
@@ -781,7 +850,7 @@ spinner $!
 LIMHIGH=4.0
 LIMLOW=3.5
 
-RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
+
 LIM1=$(echo "($LIMHIGH*10)" |bc | cut -d\. -f1)
 LIM2=$(echo "($LIMLOW*10)" |bc | cut -d\. -f1)
 
@@ -800,7 +869,8 @@ EOF
 sh rosetta.sh &
 
 echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein."
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
 
 spinner $!
 
@@ -838,7 +908,8 @@ EOF
 sh rosetta.sh &
 
 echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein."
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
 
 spinner $!
 
@@ -915,9 +986,6 @@ CISINP=$(grep -c cis procheck_$PDB.log)
 CISLF=$(grep -c cis 'procheck_last_frame.log')
 CISLFR=$(grep -c cis 'procheck_last_frame_rsr.log')
 
-EMRINP=$(grep "EMRinger Score" "$PDB"_EMR.log | awk '{print $3}')
-EMRLF=$(grep "EMRinger Score" last_EMR.log | awk '{print $3}')
-EMRLFR=$(grep "EMRinger Score" last_rsr_EMR.log | awk '{print $3}')
 
 ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
 ROSLF=$(awk 'NR==3' last_frame.sc | awk '{print $2}')
