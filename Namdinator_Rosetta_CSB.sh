@@ -858,11 +858,11 @@ if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 
-score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -density:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
+score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -density:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -density:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
@@ -878,11 +878,11 @@ elif [ "$RES1" -lt "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 
-score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0  -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
+score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -density:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -density:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
