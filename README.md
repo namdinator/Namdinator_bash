@@ -10,8 +10,6 @@ NAMD 2.12 cuda version :http://www.ks.uiuc.edu/Development/Download/download.cgi
 
 Phenix software package: https://www.phenix-online.org/download/
 
-Procheck: https://www.ebi.ac.uk/thornton-srv/software/PROCHECK/download.html
-
 Rosetta modelleing software package (ver. 2016.32.58837): https://www.rosettacommons.org/software/license-and-download
 
 
