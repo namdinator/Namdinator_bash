@@ -1085,7 +1085,7 @@ rm tmp.sc
 
 sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
 
-echo -n "Displaying the 10 residues with the highest individual Rosetta score from each PDB file:
+echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:
 
 "
 column -t perRes_scores_all.sc
@@ -1129,7 +1129,7 @@ mv phenix_rs.sh $DIREC3/ 2> /dev/null
 mv rosetta.sh $DIREC3/ 2> /dev/null
 mv rosetta_resi.sh $DIREC3/ 2> /dev/null
 mv *.sc $DIREC2/ 2> /dev/null
-mv *.geo/ 2> /dev/null
+mv *.geo $DIREC2/ 2> /dev/null
 EOF
 
 
