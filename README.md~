@@ -4,15 +4,15 @@ Namdinator is a commandline tool, written in BASH, for running a MDFF simualtion
 
 To run Namdinator you need the following programs installed:
 
-VMD 1.93: http://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=VMD
+VMD 1.93
 
-NAMD 2.12 cuda version :http://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD
+NAMD 2.12 cuda version
 
-Phenix software package: https://www.phenix-online.org/download/
+Phenix package
 
-Procheck: https://www.ebi.ac.uk/thornton-srv/software/PROCHECK/download.html
+Procheck
 
-Rosetta modelleing software package (ver. 2016.32.58837): https://www.rosettacommons.org/software/license-and-download
+rosetta phenix 2016.32.58837 
 
 
 To run Namdinator with default settings and a phenix.real_space_refine run:
