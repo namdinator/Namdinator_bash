@@ -771,7 +771,62 @@ EOF
 
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
 
+ if [ $PHENIXRS -eq 1 ]; then
 
+cat<<EOF > cispeptides.tcl
+package require cispeptide
+
+mol new ${PDB}.pdb
+set out1 [open ${PDB}_cis.log w]
+puts \$out1 [cispeptide check -mol top]
+close \$out1
+cispeptide reset
+
+mol new last_frame.pdb
+set out2 [open last_frame_cis.log w]
+puts \$out2 [cispeptide check -mol top]
+close \$out2
+cispeptide reset
+
+mol new last_frame_rsr.pdb
+set out3 [open last_frame_rsr_cis.log w]
+puts \$out3 [cispeptide check -mol top]
+close \$out3
+cispeptide reset
+EOF
+
+vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log &
+
+echo -n "Identifying Cispeptides in input PDB file and output PDB files
+"
+spinner $!
+
+ else
+cat<<EOF > cispeptides.tcl
+package require cispeptide
+
+mol new ${PDB}.pdb
+set out1 [open ${PDB}_cis.log w]
+puts \$out1 [cispeptide check -mol top]
+close \$out1
+cispeptide reset
+
+mol new last_frame.pdb
+set out2 [open last_frame_cis.log w]
+puts \$out2 [cispeptide check -mol top]
+close \$out2
+cispeptide reset
+
+EOF
+
+vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log &
+
+echo -n "Identifying Cispeptides in input PDB file and output PDB file
+"
+spinner $!
+   
+ fi
+ 
 
 cat<<EOF > molpro.sh
 
@@ -779,19 +834,16 @@ phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log
 phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log
 phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log
-procheck last_frame_rsr.pdb 3 > procheck_last_frame_rsr.log
 
 phenix.ramalyze last_frame.pdb > rama_last_frame.log
 phenix.rotalyze last_frame.pdb > rota_last_frame.log
 phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
 phenix.clashscore last_frame.pdb > clash_last_frame.log
-procheck last_frame.pdb 3 > procheck_last_frame.log
 
 phenix.ramalyze $PDB.pdb > rama_$PDB.log
 phenix.rotalyze $PDB.pdb > rota_$PDB.log
 phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
 phenix.clashscore $PDB.pdb > clash_$PDB.log
-procheck $PDB.pdb 3 > procheck_$PDB.log
 EOF
 
 sh molpro.sh &
@@ -940,7 +992,7 @@ EOF
 sh rosetta_resi.sh &
 
 echo -n "
-Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher indicated they me be involved in clashes.
+Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher indicates they me be involved in clashes.
 "
 spinner $!
 
@@ -982,9 +1034,9 @@ ROTINP=$(grep "SUMMARY" rota_"$PDB".log | awk '{print $2}')
 ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
 ROTLFR=$(grep "SUMMARY" rota_last_frame_rsr.log | awk '{print $2}')
 
-CISINP=$(grep -c cis procheck_$PDB.log)
-CISLF=$(grep -c cis 'procheck_last_frame.log')
-CISLFR=$(grep -c cis 'procheck_last_frame_rsr.log')
+CISINP=$(awk '{print $1}' ${PDB}_cis.log)
+CISLF=$(awk '{print $1}' last_frame_cis.log)
+CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
 
 
 ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
@@ -1046,73 +1098,38 @@ echo -n "
 ############################################################################
 
 cat<<EOF > cleanup.sh
-mv *.pkl $DIREC2/
-mv *.csv $DIREC2/
-mv *_plots $DIREC2/
-mv simulation-step* $DIREC1/
-mv mdff_template.namd $DIREC1/
-mv $PDB-extrabonds-cis.txt $DIREC1/
-mv $PDB-extrabonds-chi.txt $DIREC1/
-mv $PDB-extrabonds.txt $DIREC1/
-mv $PDB.pdb $DIREC1/
-mv ${PDB}_autopsf*.* $DIREC1/
-mv $PDB-grid.pdb $DIREC1/
-mv $MAP-grid.dx $DIREC1/
-mv *.log $DIREC2/
-mv *.tcl $DIREC3/
-mv molpro.sh $DIREC3/
-mv emringer.sh $DIREC3/
-mv last_frame_his.pdb $DIREC1/
-mv last_frame_bf.pdb $DIREC1/
-mv last_frame_nohydro.pdb $DIREC1/
-mv frame*.pdb $DIREC1/
-mv clash_allframes.sh $DIREC3/
-mv cleanup.sh $DIREC3/
-
-mv $PDB.new $DIREC2/
-mv $PDB.alt $DIREC2/
-mv $PDB.rin $DIREC2/
-mv $PDB.nb $DIREC2/
-mv $PDB.lan $DIREC2/
-mv $PDB.pln $DIREC2/
-mv *.ps $DIREC2/
-mv $PDB.sdh $DIREC2/
-mv $PDB.sco $DIREC2/
-mv $PDB.out $DIREC2/
-mv $PDB.sum $DIREC2/
-mv fort.11 $DIREC2/
-mv *.png $DIREC2/
-
-mv last_frame.new $DIREC2/
-mv last_frame_initial.geo $DIREC2/
-mv last_frame_real_space_refined_all_states.pdb $DIREC1/
-mv last_frame.rin $DIREC2/
-mv last_frame.nb $DIREC2/
-mv last_frame.lan $DIREC2/
-mv last_frame.pln $DIREC2/
-mv last_frame.sdh $DIREC2/
-mv last_frame.sco $DIREC2/
-mv last_frame.out $DIREC2/
-mv last_frame.sum $DIREC2/
-
-mv last_frame_rsr.new $DIREC2/
-mv last_frame_initial.geo $DIREC2/
-mv last_frame_rsr.rin $DIREC2/
-mv last_frame_rsr.nb $DIREC2/
-mv last_frame_rsr.lan $DIREC2/
-mv last_frame_rsr.pln $DIREC2/
-mv last_frame_rsr.sdh $DIREC2/
-mv last_frame_rsr.sco $DIREC2/
-mv last_frame_rsr.out $DIREC2/
-mv last_frame_rsr.sum $DIREC2/
-mv ccc_*.txt $DIREC1/
-mv all_frames_clash.txt $DIREC1/
-mv gnuplot*.sh $DIREC3/
-mv procheck.prm $DIREC2/
-mv phenix_rs.sh $DIREC3/
-mv rosetta.sh $DIREC3/
-mv rosetta_resi.sh $DIREC3/
-mv *.sc $DIREC2/
+mv *.pkl $DIREC2/ 2> /dev/null
+mv *.csv $DIREC2/ 2> /dev/null
+mv *_plots $DIREC2/ 2> /dev/null
+mv simulation-step* $DIREC1/ 2> /dev/null
+mv mdff_template.namd $DIREC1/ 2> /dev/null
+mv $PDB-extrabonds-cis.txt $DIREC1/ 2> /dev/null
+mv $PDB-extrabonds-chi.txt $DIREC1/ 2> /dev/null
+mv $PDB-extrabonds.txt $DIREC1/ 2> /dev/null
+mv $PDB.pdb $DIREC1/ 2> /dev/null
+mv ${PDB}_autopsf*.* $DIREC1/ 2> /dev/null
+mv $PDB-grid.pdb $DIREC1/ 2> /dev/null
+mv $MAP-grid.dx $DIREC1/ 2> /dev/null
+mv *.log $DIREC2/ 2> /dev/null
+mv *.tcl $DIREC3/ 2> /dev/null
+mv molpro.sh $DIREC3/ 2> /dev/null
+mv emringer.sh $DIREC3/ 2> /dev/null
+mv last_frame_his.pdb $DIREC1/ 2> /dev/null
+mv last_frame_bf.pdb $DIREC1/ 2> /dev/null
+mv last_frame_nohydro.pdb $DIREC1/ 2> /dev/null
+mv frame*.pdb $DIREC1/ 2> /dev/null
+mv clash_allframes.sh $DIREC3/ 2> /dev/null
+mv cleanup.sh $DIREC3/ 2> /dev/null
+mv *.png $DIREC2/ 2> /dev/null
+mv last_frame_real_space_refined_all_states.pdb $DIREC1/ 2> /dev/null
+mv ccc_*.txt $DIREC1/ 2> /dev/null
+mv all_frames_clash.txt $DIREC1/ 2> /dev/null
+mv gnuplot*.sh $DIREC3/ 2> /dev/null
+mv phenix_rs.sh $DIREC3/ 2> /dev/null
+mv rosetta.sh $DIREC3/ 2> /dev/null
+mv rosetta_resi.sh $DIREC3/ 2> /dev/null
+mv *.sc $DIREC2/ 2> /dev/null
+mv *.geo/ 2> /dev/null
 EOF
 
 
