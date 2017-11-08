@@ -1,4 +1,4 @@
-s# Namdinator
+# Namdinator
 
 Namdinator is a commandline tool, written in BASH, for running a MDFF simualtion on an input PDB into a .MRC map.
 
