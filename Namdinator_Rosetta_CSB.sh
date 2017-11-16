@@ -385,12 +385,14 @@ echo -n "Removing any CONECT/SHEET/HELIX records that may be present in $PDBIN, 
 
 if [ "$LIGANDS" = "1" ]; then
 
-    sed '/CONECT\|HELIX\|SHEET/d' ./$PDBIN > "$PDB"_altered.pdb
 
-else
+    grep "HETATM\|^TER\|END\|^CRYST1\|^ATOM" $PDBIN > ${PDB}_altered.pdb
+    
+ else
 
-    sed '/CONECT\|HETATM\|HELIX\|SHEET/d' ./$PDBIN > "$PDB"_altered.pdb
+    grep "^TER\|END\|^CRYST1\|^ATOM" $PDBIN > ${PDB}_altered.pdb
 
+     
 fi
 
 sed -i 's/UNK/ALA/g' "$PDB"_altered.pdb
@@ -912,9 +914,9 @@ cat<<EOF > rosetta.sh
 
 score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
@@ -932,9 +934,9 @@ cat<<EOF > rosetta.sh
 
 score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
@@ -951,9 +953,9 @@ elif [ "$RES1" -gt  "$LIM1" ]; then
 
 score_jd2.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame.sc > lf_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
 
-score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile last_frame_rsr.sc > lf_rsr_rosetta.log
+score_jd2.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
 EOF
 
@@ -979,12 +981,12 @@ per_residue_energies.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
 sort -k21 -n -r default.out > ${PDB}_perRes.sc
 rm default.out
 
-per_residue_energies.linuxgccrelease -in:file:s last_frame.pdb > lf_ros_perRes.log
-sort -k21 -n -r default.out > last_frame_perRes.sc
+per_residue_energies.linuxgccrelease -in:file:s last_frame.pdb > lf_perRes.log
+sort -k21 -n -r default.out > lf_perRes.sc
 rm default.out
 
-per_residue_energies.linuxgccrelease -in:file:s last_frame_rsr.pdb > lfrsr_ros_perRes.log 
-sort -k21 -n -r default.out > last_frame_rsr_perRes.sc
+per_residue_energies.linuxgccrelease -in:file:s last_frame_rsr.pdb > lf_rsr_perRes.log 
+sort -k21 -n -r default.out > lf_rsr_perRes.sc
 rm default.out
 
 EOF
@@ -997,14 +999,8 @@ Calculating Rosetta scores for individual residues in input and output PDB files
 spinner $!
 
 awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $3, $21}' > pr.sc
-awk 'NR<=10' last_frame_perRes.sc | awk '{print $3, $21}' > pr2.sc
-awk 'NR<=10' last_frame_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
-
-#ROSRESINP=$(awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $19, $20}')
-#ROSRESLF=$(awk 'NR<=10' last_frame_perRes.sc | awk '{print $19, $20}')
-#ROSRESLFR=$(awk 'NR<=10' last_frame_rsr_perRes.sc | awk '{print $19, $20}')
-
-
+awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
+awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
 
 ############################################################################
 ###############Displaying all the validation metrics #######################
@@ -1040,8 +1036,8 @@ CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
 
 
 ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
-ROSLF=$(awk 'NR==3' last_frame.sc | awk '{print $2}')
-ROSLFR=$(awk 'NR==3' last_frame_rsr.sc | awk '{print $2}')
+ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
+ROSLFR=$(awk 'NR==3' lf_rsr.sc | awk '{print $2}')
 
 
 INP=INP
@@ -1079,18 +1075,61 @@ printf "+---------------------------------------------------------+\n"
 echo ""
 
 
-paste pr.sc pr2.sc > tmp.sc
-paste tmp.sc pr3.sc > perRes_scores_all.sc
-rm tmp.sc
 
-sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+if [ ! -s pr.sc ] && [ -s pr2.sc ] && [ -s pr3.sc ] ; then
 
-echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:
+    pr -mts pr2.sc pr3.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+
+elif [ -s pr.sc ] && [ ! -s pr2.sc ] && [ -s pr3.sc ] ; then
+
+    pr -mts pr.sc pr3.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_inp Score_inp Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+
+elif [ -s pr.sc ] && [ -s pr2.sc ] && [ ! -s pr3.sc ] ; then
+
+    pr -mts pr.sc pr2.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF\n/' perRes_scores_all.sc
+
+elif [ -s pr.sc ] && [ ! -s pr2.sc ] && [ ! -s pr3.sc ] ; then
+    pr -mts pr.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_inp Score_inp\n/' perRes_scores_all.sc
+
+elif [ ! -s pr.sc ] && [ -s pr2.sc ] && [ ! -s pr3.sc ] ; then
+
+    pr -mts pr2.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_LF Score_LF\n/' perRes_scores_all.sc
+
+
+elif [ ! -s pr.sc ] && [ ! -s pr2.sc ] && [ -s pr3.sc ] ; then
+
+    pr -mts pr3.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+
+elif [ ! -s pr.sc ] && [ ! -s pr2.sc ] && [ ! -s pr3.sc ] ; then
+
+    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
+    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+
+elif [ -s pr.sc ] && [ -s pr2.sc ] && [ -s pr3.sc ] ; then
+
+    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
+    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+
+fi
+
+echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
 
 "
 column -t perRes_scores_all.sc
 
-echo -n "
+echo -n "                                                                                                                                                                                                                                                                         
 "
 
 ############################################################################

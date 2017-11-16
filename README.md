@@ -8,7 +8,7 @@ VMD 1.93: http://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=V
 
 NAMD 2.12 cuda version :http://www.ks.uiuc.edu/Development/Download/download.cgi?PackageName=NAMD
 
-Phenix software package: https://www.phenix-online.org/download/
+Phenix software package version 1.13rc1 (2954): https://www.phenix-online.org/download/
 
 Rosetta modelleing software package (ver. 2016.32.58837): https://www.rosettacommons.org/software/license-and-download
 
