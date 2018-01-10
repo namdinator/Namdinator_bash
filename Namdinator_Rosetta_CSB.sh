@@ -1,4 +1,9 @@
 #!/bin/bash
+# log to file
+LOGFILE=Namdinator_all_output.log
+exec > >(tee -a $LOGFILE)
+exec 2>&1
+
 export LC_NUMERIC="en_US.UTF-8"
 trap "exit" INT TERM
 trap "kill 0" EXIT
