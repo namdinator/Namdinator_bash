@@ -68,9 +68,9 @@ cat <<EOF
 usage: $0 options
 
 $normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of your PDB file into your density map.
+Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
 
-To use Namdinator you $bold must$normal input a standard PDB file using the -p flag, a map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag.
+To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
 $normal.
 
 Examples:
@@ -81,14 +81,14 @@ $bold
 $normal
 To run Namdinator with phenix.real_space refinement:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map -x
+./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
 $normal
 To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
 $bold
 ./Namdinator.sh -help
 $normal
 
-From the commandline you can also alter some of the standard parameters that Namdinator utilizes, through the usage of specific flags appended the mandatory -p and -m flags.
+Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
 
 All of Namdinator's flags are listed below:
 
@@ -98,9 +98,9 @@ All of Namdinator's flags are listed below:
 
       -m Input map file (.mrc/.ccp4/.map/.situs)
 
-      -e Number of Minimization steps (default is 200)
+      -e Number of Minimization steps (default is 2000)
 
-      -g G-scale value (default: 0.6)
+      -g G-scale value (default: 0.3)
 
       -b B-factor value to be applied all atoms in the output PDB file (default: 20).
 
@@ -110,7 +110,7 @@ All of Namdinator's flags are listed below:
 
       -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
 
-      -x If set enables a default phenix real space refinement run to run on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS.
+      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
 
       -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
 
@@ -119,21 +119,21 @@ All of Namdinator's flags are listed below:
       -n Number or processors used (default: number of processors divided by number of threads)
 
 **************************************************************
-All files produced by Namdinator pertaining to the actual simulation, are stored in the folder "simulation_files" whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
+All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt if relevant), are stored in the folder "data_files" whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
 
 **************************************************************
 Namdinator writes out the last frame from the calculated trajectory as a PDB file called last_frame.pdb. Hydrogens are removed from the PDB file and all HSD/HSE/HSP residues are converted back to HIS.
-The last_frame.pdb file is then used (if the -x flag is stated) as input model for the Phenix.real_space_refine, together with the input map. The resulting model is writeen as a PDB file: last_frame_rsr.pdb.
-last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools. A summary of the results from all three files is displayed at the end of Namdinator for easy comparison.
+The last_frame.pdb file is then used (if the -x flag is set) as input model for the Phenix.real_space_refine, together with the input map. The output is written as a PDB file named: last_frame_rsr.pdb.
+last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools and rosetta score functions. A summary of the results from all three files is displayed in a table at the end of Namdinator for easy comparison.
 
 **************************************************************
-To visualize your simulation afterwards in VMD, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables easy visualizationt of both the map and the trajectory calculated by Namdinator.
+To visualize the trajectory calculated during the simulation in VMD afterwards, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables easy visualizationt of both the map and the trajectory calculated by Namdinator.
 
-To launch the script from the commandline, simply type (or copy/paste):$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model while the trajectory is playing. NB. This script works regardless if you did a 1 step or 3 step Namdinator run, but as each map is different chance are very high that the default contour isovalue, will not work well with your map. To change the isovalue you have to select the map in the "graphical representations" window that open together with VMD after executing the above mentioned command. There you will have to alter the isovalue value until your map is displayed as you prefer.
+To launch the script from the commandline, simply type:$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD (if VMD is installed or module loaded) and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model. As all maps are different, chances are very high that the default contour isovalue will not work at all with your map. As I have found no smart automatic way of setting a usefull contour level, you will have to change the isovalue manually in VMD. This is done by going to the "graphical representations" window that should open together with VMD after running the visualize_trj.tcl script. There you will have to alter the isovalue value until your map is displayed as you prefer.
 
 ************************************************************** $bold
-REMARK:"$normal"The input PDB file is currently not allowed to contain any record's besides the ATOM record, as they can make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that any non-ATOM records will be cropped from the PDB used for the simulation, but the orginal input PDB file will remain intact.
-The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces will be acted on the system to fit the map. In general a gscale of 0.3-0.6 works fine for step 1, however, a too high -gscale can make the simulation crash due to too high speed. If you despite using a relativ low g-scale value, still experience to fast movement of the atoms you should instead increase the number of minimization steps to maybe 2000 (default is 200) by using the -e flag (-e 2000).
+REMARK:"$normal"The input PDB file is currently not allowed to contain any record's besides the ATOM record, as they tend to make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that any non-ATOM records will be cropped from the PDB used for the simulation, but the orginal input PDB file will remain intact.
+The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces acting on the system to fit the map, will be. In general a gscale of 0.3-0.6 works fine, however, too high g-scale values can make the simulation crash due to too high velocity of the atoms. If you, despite using a relativ low g-scale value, still experience to fast movement of the atoms you could try to increase the number of minimization steps to above the default 2000 by using the -e flag, though 2000 seems to work really well.
 Also, please note, that due to the stochastic nature of molecular dynamics simulations, it is expected that trajectories obtained from identical input files will differ slightly from each run.
 
 Enjoy
@@ -226,10 +226,11 @@ MAPEXT=$(echo "$MAPIN"| cut -d\. -f2)
 
 if [ "$PDBIN" = "" ] && [ "$MAPIN" = "" ]; then
    echo ""$normal"
-$normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of your PDB file into your density map.
 
-To use Namdinator you $bold must$normal input a standard PDB file using the -p flag, a map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag.
+$normal
+Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
+
+To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
 $normal.
 
 Examples:
@@ -240,14 +241,14 @@ $bold
 $normal
 To run Namdinator with phenix.real_space refinement:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map -x
+./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
 $normal
 To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
 $bold
 ./Namdinator.sh -help
 $normal
 
-From the commandline you can also alter some of the standard parameters that Namdinator utilizes, through the usage of specific flags appended the mandatory -p and -m flags.
+Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
 
 All of Namdinator's flags are listed below:
 
@@ -257,9 +258,9 @@ All of Namdinator's flags are listed below:
 
       -m Input map file (.mrc/.ccp4/.map/.situs)
 
-      -e Number of Minimization steps (default is 200)
+      -e Number of Minimization steps (default is 2000)
 
-      -g G-scale value (default: 0.6)
+      -g G-scale value (default: 0.3)
 
       -b B-factor value to be applied all atoms in the output PDB file (default: 20).
 
@@ -269,7 +270,7 @@ All of Namdinator's flags are listed below:
 
       -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
 
-      -x If set enables a default phenix real space refinement run to run on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS.
+      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
 
       -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
 
@@ -449,7 +450,7 @@ while [ ! -f simulation-step1.namd ] ; do
 done
 
 ############################################################################
-##################Running MDFF generated files in  NAMD ####################
+##################Running MDFF generated files in NAMD #####################
 ############################################################################
 
 echo -n "
@@ -468,7 +469,7 @@ module load namd-cuda-2.12
 #    cat NAMD2_step1.log
 
 ############################################################################
-############# Stop script from continuing if autoPSF fails ################
+############# Stop script from continuing if autoPSF fails #################
 ############################################################################
 
 if [[ ! -f ${PDB}_autopsf.psf ]] ; then
@@ -487,7 +488,7 @@ Terminating Namdinator!
 fi
 
 ############################################################################
-############# Stop script from continuing if NAMD2 fails ################
+############# Stop script from continuing if NAMD2 fails #################
 ############################################################################
 
 if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.log; then
@@ -583,7 +584,7 @@ sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_fr
 mv -f last_frame_nucleo.pdb last_frame.pdb
 
 ############################################################################
-###############Phenix real space refinement ###################
+######################Phenix real space refinement #########################
 ############################################################################
 
 if [ "$PHENIXRS" = "1" ]; then
@@ -602,9 +603,8 @@ fi
 
 mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
 ############################################################################
-###################Cross correlation coeficient check ######################
+################## Cross correlation coefficient check #####################
 ############################################################################
-
 
 
  if [ $PHENIXRS -eq 1 ]; then
@@ -686,6 +686,9 @@ spinner $!
      
 fi
 
+############################################################################
+###############Generating Gnuplots of CCC from all frames###################
+############################################################################
 
 echo -n '
 Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
@@ -717,7 +720,7 @@ CCC2=$(awk '{print $2}' ccc_lastframe.txt)
 CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
 
 ############################################################################
-###############Molprobity check of input and output PDB's###################
+###################### Clash score calculations ############################
 ############################################################################
 cat<<EOF > clash_allframes.sh
 #!/bin/bash
@@ -747,16 +750,19 @@ Calculating Clashscores for all individual frames from the trajectory
 "
 spinner $!
 
+############################################################################
+########## Generating Gnuplots of Clash scores from all frames #############
+############################################################################
 echo -n '
 Plotting the Clashscores for every frame of the trajectory simulation-step1.dcd'
 
-cat<<EOF > gnuplot_clas_dumb.sh
+cat<<EOF > gnuplot_clash_dumb.sh
 set terminal dumb 110 35
 unset xtics 
 plot "all_frames_clash.txt" using 2:xtic(1) w points pt "*" notitle
 EOF
 
-cat all_frames_clash.txt | gnuplot gnuplot_clas_dumb.sh
+cat all_frames_clash.txt | gnuplot gnuplot_clash_dumb.sh
 
 echo -n '
 Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
@@ -772,6 +778,10 @@ replot
 EOF
 
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
+
+############################################################################
+################ Calculatiing  numbers of cispeptide #######################
+############################################################################
 
  if [ $PHENIXRS -eq 1 ]; then
 
@@ -829,6 +839,9 @@ spinner $!
    
  fi
  
+############################################################################
+##################### Validation checks of PDB files #######################
+############################################################################
 
 cat<<EOF > molpro.sh
 
@@ -856,7 +869,7 @@ Running Molprobity valdations tools on input and output PDB files
 spinner $!
 
 ############################################################################
-###############EMRinger score #######################
+########################## EMRinger score ##################################
 ############################################################################
 
 LIMEM=4.5
