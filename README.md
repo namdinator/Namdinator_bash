@@ -1,6 +1,6 @@
 # Namdinator
 
-Namdinator is a commandline tool, written in BASH, that sets up and runs  a MDFF (molecular Dynamics Flexible Fit) simulation using the input PDB file and input density file.
+Namdinator is a commandline tool, written in BASH, that sets up and runs a MDFF (molecular Dynamics Flexible Fit) simulation in a semi automatic manner, using only the input PDB file and input density file.
 
 To run Namdinator you need the following programs installed:
 
@@ -18,5 +18,5 @@ Example on how to run Namdinator with default settings and a phenix.real_space_r
 
 ./Namdiantor_Rosetta_CSB.sh -p input.pdb -m map.mrc -r 3.5 -x
 
--p is the input PDB file (mandatory), -m is the input density in .mrc format (mandatory), -r is the resolution of the input density (mandatory) and -x is to turn on phenix.real.space refinement.
+-p is the input PDB file (mandatory), -m is the input density in .mrc format (mandatory), -r is the resolution of the input density (mandatory) and -x is to turn on phenix.real.space refinement (Optional, but recommended).
 
