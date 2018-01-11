@@ -1187,6 +1187,7 @@ mv rosetta.sh $DIREC3/ 2> /dev/null
 mv rosetta_resi.sh $DIREC3/ 2> /dev/null
 mv *.sc $DIREC2/ 2> /dev/null
 mv *.geo $DIREC2/ 2> /dev/null
+mv $DIREC2/namdinator_stdout.log . 2> /dev/null
 EOF
 
 
