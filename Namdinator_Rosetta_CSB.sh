@@ -1,6 +1,6 @@
 #!/bin/bash
 # log to file
-LOGFILE=Namdinator_all_output.log
+LOGFILE=namdinator_stdout.log
 exec > >(tee -a $LOGFILE)
 exec 2>&1
 
@@ -1232,3 +1232,9 @@ function displaytime {
 echo -n '
 Run time for script:'
 displaytime $ELAPSED_TIME
+
+############################################################################
+############## Removing most of the Spinner output from the log #############
+############################################################################
+
+sed -i $'s/[^H^H^H^H^H^H[:print:]\t]//g' namdinator_stdout.log 
