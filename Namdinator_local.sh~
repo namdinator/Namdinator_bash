@@ -21,7 +21,7 @@ VMDMASTER="/opt/bioxray/programs/vmd-1.93"
 
 module load vmd-1.93
 module load namd-cuda-2.12
-module load rosetta_phenix_2016.32.58837 
+module load rosetta_mpi_2017.08.59291
 ############################################################################
 ############################################################################
 ############################################################################
@@ -611,8 +611,7 @@ mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
-
- if [ $PHENIXRS -eq 1 ]; then
+if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > CCC_check.tcl
 
@@ -720,9 +719,6 @@ EOF
 
 cat ccc_frames.txt | gnuplot gnuplot_png.sh
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
 
 ############################################################################
 ###################### Clash score calculations ############################
@@ -785,10 +781,10 @@ EOF
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
 
 ############################################################################
-################ Calculatiing  numbers of cispeptide #######################
+################ Calculatiing  number of cispeptide ########################
 ############################################################################
 
- if [ $PHENIXRS -eq 1 ]; then
+if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > cispeptides.tcl
 package require cispeptide
@@ -847,6 +843,7 @@ spinner $!
 ############################################################################
 ##################### Validation checks of PDB files #######################
 ############################################################################
+if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > molpro.sh
 
@@ -873,10 +870,35 @@ Running Molprobity valdations tools on input and output PDB files
 "
 spinner $!
 
+ else
+
+     cat<<EOF > molpro.sh
+phenix.ramalyze last_frame.pdb > rama_last_frame.log
+phenix.rotalyze last_frame.pdb > rota_last_frame.log
+phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
+phenix.clashscore last_frame.pdb > clash_last_frame.log
+
+phenix.ramalyze $PDB.pdb > rama_$PDB.log
+phenix.rotalyze $PDB.pdb > rota_$PDB.log
+phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
+phenix.clashscore $PDB.pdb > clash_$PDB.log
+EOF
+
+sh molpro.sh &
+
+echo -n "
+Running Molprobity valdations tools on input and output PDB files
+"
+spinner $!
+
+ fi
+ 
+
 ############################################################################
 ########################## EMRinger score ##################################
 ############################################################################
-
+if [ "$PHENIXRS" = "1" ]; then
+ 
 LIMEM=4.5
 
 RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
@@ -915,9 +937,50 @@ EMRLFR="n/a"
     
 fi
 
+ else
+
+      
+LIMEM=4.5
+
+RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
+LIMEM1=$(echo "($LIMEM*10)" |bc | cut -d\. -f1)
+
+if [ "$RES1" -lt  "$LIMEM1" ]; then
+
+cat<<EOF > emringer.sh
+
+phenix.emringer last_frame.pdb $MAPIN > last_EMR.log
+phenix.emringer $PDB.pdb $MAPIN > ${PDB}_EMR.log
+
+EOF
+
+sh emringer.sh &
+
+echo -n "
+Calculating EMRinger scores for input and output PDB files.
+"
+spinner $!
+
+EMRINP=$(grep "EMRinger Score" "$PDB"_EMR.log | awk '{print $3}')
+EMRLF=$(grep "EMRinger Score" last_EMR.log | awk '{print $3}')
+
+else
+
+echo -n "
+ Omitting calculating EMRinger scores for input and output PDB files, as the stated resolution of the input map is above 4.5Å
+"
+
+EMRINP="n/a"
+EMRLF="n/a"
+    
+fi
+ fi
+ 
+
 ############################################################################
 ###############Rosetta score for whole model against map ###################
 ############################################################################
+if [ "$PHENIXRS" = "1" ]; then
 
 LIMHIGH=4.0
 LIMLOW=3.5
@@ -989,21 +1052,93 @@ else
     :
 fi
 
+ else
+
+LIMHIGH=4.0
+LIMLOW=3.5
+
+
+LIM1=$(echo "($LIMHIGH*10)" |bc | cut -d\. -f1)
+LIM2=$(echo "($LIMLOW*10)" |bc | cut -d\. -f1)
+
+if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+
+EOF
+
+sh rosetta.sh &
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+spinner $!
+
+elif [ "$RES1" -lt "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+
+EOF
+
+sh rosetta.sh &
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+spinner $!
+
+elif [ "$RES1" -gt  "$LIM1" ]; then
+
+    cat<<EOF > rosetta.sh
+
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+
+EOF
+
+sh rosetta.sh &
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+spinner $!
+
+else
+    :
+fi
+
+ fi
+ 
+
+     
+
 ############################################################################
 ###############Rosetta score for individual residues #######################
 ############################################################################
-
+if [ "$PHENIXRS" = "1" ]; then
+ 
 cat<<EOF > rosetta_resi.sh
 
-per_residue_energies.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
 sort -k21 -n -r default.out > ${PDB}_perRes.sc
 rm default.out
 
-per_residue_energies.linuxgccrelease -in:file:s last_frame.pdb > lf_perRes.log
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb > lf_perRes.log
 sort -k21 -n -r default.out > lf_perRes.sc
 rm default.out
 
-per_residue_energies.linuxgccrelease -in:file:s last_frame_rsr.pdb > lf_rsr_perRes.log 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb > lf_rsr_perRes.log 
 sort -k21 -n -r default.out > lf_rsr_perRes.sc
 rm default.out
 
@@ -1020,10 +1155,41 @@ awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $3, $21}' > pr.sc
 awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
 awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
 
+ else
+cat<<EOF > rosetta_resi.sh
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
+sort -k21 -n -r default.out > ${PDB}_perRes.sc
+rm default.out
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb > lf_perRes.log
+sort -k21 -n -r default.out > lf_perRes.sc
+rm default.out
+
+EOF
+
+sh rosetta_resi.sh &
+
+echo -n "
+Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher indicates they me be involved in clashes.
+"
+spinner $!
+
+awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $3, $21}' > pr.sc
+awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
+
+     fi
+
 ############################################################################
 ###############Displaying all the validation metrics #######################
 ############################################################################
+if [ "$PHENIXRS" = "1" ]; then
 
+
+CCC1=$(awk '{print $2}' ccc_input.txt)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+     
 claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
 claLFR=$(awk 'END {print $NF}' clash_last_frame_rsr.log)
@@ -1061,6 +1227,43 @@ ROSLFR=$(awk 'NR==3' lf_rsr.sc | awk '{print $2}')
 INP=INP
 LF=LF
 LFR=LFR
+
+ else
+
+CCC1=$(awk '{print $2}' ccc_input.txt)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+     
+claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
+claLF=$(awk 'END {print $NF}' clash_last_frame.log)
+
+FAVINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $2}' | head -n1)
+FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
+
+ALWINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $4}' | head -n1)
+ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
+
+OUTINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $6}' | head -n1)
+OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
+
+CBEINP=$(grep "SUMMARY" cbeta_"$PDB".log | awk '{print $2}')
+CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
+
+ROTINP=$(grep "SUMMARY" rota_"$PDB".log | awk '{print $2}')
+ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
+
+CISINP=$(awk '{print $1}' ${PDB}_cis.log)
+CISLF=$(awk '{print $1}' last_frame_cis.log)
+
+ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
+ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
+
+INP=INP
+LF=LF
+LFR=LFR
+
+
+     fi
+
 
 echo -n '
 '$bold'
