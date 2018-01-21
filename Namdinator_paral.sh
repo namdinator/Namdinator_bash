@@ -751,7 +751,7 @@ ls -1v frame*-bf.log | xargs -d '\n' grep "clashscore" | sed -e "s/:clashscore =
 EOF
 
 chmod +x clash_allframes.sh
-./clash_allframes.sh & PID4=$!
+./clash_allframes.sh & PID[4]=$!
 
 echo -n "
 Calculating Clashscores for all individual frames from the trajectory
@@ -806,7 +806,7 @@ close \$out3
 cispeptide reset
 EOF
 
-vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID7=$!
+vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID[7]=$!
 
 echo -n "Identifying Cispeptides in input PDB file and output PDB files
 "
@@ -829,7 +829,7 @@ cispeptide reset
 
 EOF
 
-vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID7=$!
+vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID[7]=$!
 
 echo -n "Identifying Cispeptides in input PDB file and output PDB file
 "
@@ -859,20 +859,20 @@ phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
 phenix.clashscore $PDB.pdb > clash_$PDB.log
 EOF
 
-phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log & PID8=$!
-phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log & PID9=$!
-phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log & PID10=$!
-phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log & PID11=$!
+phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log & PID[8]=$!
+phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log & PID[9]=$!
+phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log & PID[10]=$!
+phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log & PID[11]=$!
 
-phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID12=$!
-phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID13=$!
-phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID14=$!
-phenix.clashscore last_frame.pdb > clash_last_frame.log & PID15=$!
+phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID[12]=$!
+phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID1[13]=$!
+phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID[14]=$!
+phenix.clashscore last_frame.pdb > clash_last_frame.log & PID[15]=$!
 
-phenix.ramalyze $PDB.pdb > rama_$PDB.log & PID16=$!
-phenix.rotalyze $PDB.pdb > rota_$PDB.log & PID17=$!
-phenix.cbetadev $PDB.pdb > cbeta_$PDB.log & PID18=$!
-phenix.clashscore $PDB.pdb > clash_$PDB.log & PID19=$!
+phenix.ramalyze $PDB.pdb > rama_$PDB.log & PID[16]=$!
+phenix.rotalyze $PDB.pdb > rota_$PDB.log & PID[17]=$!
+phenix.cbetadev $PDB.pdb > cbeta_$PDB.log & PID[18]=$!
+phenix.clashscore $PDB.pdb > clash_$PDB.log & PID[19]=$!
 
 echo -n "
 Running Molprobity valdations tools on input and output PDB files
@@ -892,15 +892,15 @@ phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
 phenix.clashscore $PDB.pdb > clash_$PDB.log
 EOF
 
-phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID12=$!
-phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID13=$!
-phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID14=$!
-phenix.clashscore last_frame.pdb > clash_last_frame.log & PID15=$!
+phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID[12]=$!
+phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID[13]=$!
+phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID[14]=$!
+phenix.clashscore last_frame.pdb > clash_last_frame.log & PID[15]=$!
 
-phenix.ramalyze $PDB.pdb > rama_$PDB.log & PID16=$!
-phenix.rotalyze $PDB.pdb > rota_$PDB.log & PID17=$!
-phenix.cbetadev $PDB.pdb > cbeta_$PDB.log & PID18=$!
-phenix.clashscore $PDB.pdb > clash_$PDB.log & PID19=$!
+phenix.ramalyze $PDB.pdb > rama_$PDB.log & PID[16]=$!
+phenix.rotalyze $PDB.pdb > rota_$PDB.log & PID[17]=$!
+phenix.cbetadev $PDB.pdb > cbeta_$PDB.log & PID[18]=$!
+phenix.clashscore $PDB.pdb > clash_$PDB.log & PID[19]=$!
 
 echo -n "
 Running Molprobity valdations tools on input and output PDB files
@@ -917,9 +917,9 @@ if [ "$PHENIXRS" = "1" ]; then
 LIMHIGH=4.0
 LIMLOW=3.5
 
-RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
-LIM1=$(echo "($LIMHIGH*10)" |bc | cut -d\. -f1)
-LIM2=$(echo "($LIMLOW*10)" |bc | cut -d\. -f1)
+RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
+LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
+LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
 
 if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
 
@@ -933,11 +933,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID22=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
 
 echo -n "
@@ -956,11 +956,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID22=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
 echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
@@ -977,11 +977,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID22=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
 
 echo -n "
@@ -997,9 +997,9 @@ fi
 LIMHIGH=4.0
 LIMLOW=3.5
 
-RES1=$(echo "($RES*10)" |bc | cut -d\. -f1)
-LIM1=$(echo "($LIMHIGH*10)" |bc | cut -d\. -f1)
-LIM2=$(echo "($LIMLOW*10)" |bc | cut -d\. -f1)
+RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
+LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
+LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
 
 if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
 
@@ -1011,9 +1011,9 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
 
 echo -n "
@@ -1031,9 +1031,9 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
 
 echo -n "
@@ -1050,9 +1050,9 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 EOF
 
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID20=$!
+score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID21=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
 
 echo -n "
@@ -1086,15 +1086,15 @@ rm default.out
 
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID23=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID24=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID[24]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out > lf_rsr_perRes.log & PID25=$! 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out > lf_rsr_perRes.log & PID[25]=$! 
 
 
 echo -n "
-Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher indicates they me be involved in clashes.
+Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
 
  else
@@ -1110,20 +1110,20 @@ rm default.out
 
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID23=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID24=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID[24]=$!
 
 
 echo -n "
-Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher indicates they me be involved in clashes.
+Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
      fi
 ############################################################################
 ######################## wait for all PIDS to finish #######################
 ############################################################################
 
-for PIDS in $PID2 $PID3 $PID4 $PID5 $PID6 $PID7 $PID8 $PID9 $PID10 $PID11 $PID12 $PID13 $PID14 $PID15 $PID16 $PID17 $PID18 $PID19 $PID20 $PID21 $PID22 $PID23 $PID24 $PID25; do 
+for PIDS in ${PID[*]};do
      #echo "check wait on $(ps -p $PIDS -o comm=)"
      while lsof -p $PIDS > /dev/null 2>&1; do
 	 spinner $!
