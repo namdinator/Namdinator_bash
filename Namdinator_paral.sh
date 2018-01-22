@@ -25,6 +25,8 @@ module load rosetta_mpi_2017.08.59291
 ############################################################################
 ############################################################################
 ############################################################################
+
+
 ############################################################################
 ########### You can alter the below parameters for the MDFF setup,##########
 ########### otherwise the stated default values will be used.     ##########
@@ -733,16 +735,20 @@ for i in \$(ls -1v frame*.pdb); do
     sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$i > \$f-bf.pdb
 done
 
+NUM=0
 for i in \$(ls -1v frame*-bf.pdb); do
-
+    NUM=\$(( \$NUM + 1 ))
     f=\$(echo \$i| cut -d\. -f1)
-  
+
+    while [ \$(pgrep -f clashscore.py | wc -l) -ge $PROCS ]; do
+    sleep 1
+    done
+
     phenix.clashscore \$i > \$f.log & pids[\${NUM}]=\$!
 done
 
 for pid in \${pids[*]}; do
-     while lsof -p \$pid > /dev/null 2>&1; do
-    sleep 3
+    wait \$pid     
 done
 
 done
@@ -1282,7 +1288,7 @@ LF=LF
 LFR=LFR
 
 
-     fi
+fi
 
 
 echo -n '
@@ -1315,53 +1321,16 @@ printf "+---------------------------------------------------------+\n"
 echo ""
 
 
+if [ "$PHENIXRS" = "1" ]; then
+    
+    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
 
-if [ ! -s pr.sc ] && [ -s pr2.sc ] && [ -s pr3.sc ] ; then
+    sed -i '1s/^/ Resid_Inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
 
-    pr -mts pr2.sc pr3.sc > perRes_scores_all.sc
-
-    sed -i '1s/^/ Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
-
-elif [ -s pr.sc ] && [ ! -s pr2.sc ] && [ -s pr3.sc ] ; then
-
-    pr -mts pr.sc pr3.sc > perRes_scores_all.sc
-
-    sed -i '1s/^/ Resid_inp Score_inp Resid_LFR Score_LFR\n/' perRes_scores_all.sc
-
-elif [ -s pr.sc ] && [ -s pr2.sc ] && [ ! -s pr3.sc ] ; then
-
+else
     pr -mts pr.sc pr2.sc > perRes_scores_all.sc
 
     sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF\n/' perRes_scores_all.sc
-
-elif [ -s pr.sc ] && [ ! -s pr2.sc ] && [ ! -s pr3.sc ] ; then
-    pr -mts pr.sc > perRes_scores_all.sc
-
-    sed -i '1s/^/ Resid_inp Score_inp\n/' perRes_scores_all.sc
-
-elif [ ! -s pr.sc ] && [ -s pr2.sc ] && [ ! -s pr3.sc ] ; then
-
-    pr -mts pr2.sc > perRes_scores_all.sc
-
-    sed -i '1s/^/ Resid_LF Score_LF\n/' perRes_scores_all.sc
-
-
-elif [ ! -s pr.sc ] && [ ! -s pr2.sc ] && [ -s pr3.sc ] ; then
-
-    pr -mts pr3.sc > perRes_scores_all.sc
-
-    sed -i '1s/^/ Resid_LFR Score_LFR\n/' perRes_scores_all.sc
-
-elif [ ! -s pr.sc ] && [ ! -s pr2.sc ] && [ ! -s pr3.sc ] ; then
-
-    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
-    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
-
-elif [ -s pr.sc ] && [ -s pr2.sc ] && [ -s pr3.sc ] ; then
-
-    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
-    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
-
 fi
 
 echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
