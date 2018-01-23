@@ -988,6 +988,194 @@ mv -f last_frame_rnd3_real_space_refined.pdb last_frame_rsr_rnd3.pdb
 
 fi
 
+
+###########################################################################
+############################# 4th round ###################################
+###########################################################################
+if [ "$MULTI" = "1" ]; then 
+
+REST4="last_frame_rsr_rnd3-extrabonds.txt last_frame_rsr_rnd3-extrabonds-cis.txt last_frame_rsr_rnd3-extrabonds-chi.txt"
+
+echo -n "Running AutoPSF on last_frame_rsr_rnd3.pdb
+
+Generating the following restraint files for last_frame_rsr_rnd3.pdb
+
+"$REST4"
+
+Generating simulation files for NAMD2
+
+"
+cat<<EOF > "MDFF_setup_rnd4.tcl"
+package require ssrestraints
+package require mdff
+package require autopsf
+package require cispeptide
+package require chirality
+mol new last_frame_rsr_rnd3.pdb
+autopsf -mol 0
+cispeptide restrain -o last_frame_rsr_rnd3-extrabonds-cis.txt
+chirality restrain -o last_frame_rsr_rnd3-extrabonds-chi.txt
+ssrestraints -psf last_frame_rsr_rnd3_autopsf.psf -pdb last_frame_rsr_rnd3_autopsf.pdb -o last_frame_rsr_rnd3-extrabonds.txt -hbonds
+mdff gridpdb -psf last_frame_rsr_rnd3_autopsf.psf -pdb last_frame_rsr_rnd3_autopsf.pdb -o last_frame_rsr_rnd3-grid.pdb
+mdff griddx -i $MAP.$MAPEXT -o $MAP-grid.dx
+mdff setup -o simulation_rnd4 -psf last_frame_rsr_rnd3_autopsf.psf -pdb last_frame_rsr_rnd3_autopsf.pdb -griddx $MAP-grid.dx -gridpdb last_frame_rsr_rnd3-grid.pdb -extrab {$REST3} -parfiles {$PARAMS} -temp $ITEMP -ftemp $FTEMP -gscale $GS -numsteps $NUMS -minsteps $EM
+
+EOF
+
+vmd -dispdev text -eofexit <MDFF_setup_rnd3.tcl> MDFF_rnd4.log &
+echo -n "PROCESSING..."
+
+    spinner $!
+
+cat MDFF_rnd4.log
+
+while [ ! -f simulation_rnd4-step1.namd ] ; do
+
+     sleep 1
+done
+fi
+
+############################################################################
+##################Running MDFF generated files in NAMD #####################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n "
+Trying to module load the CUDA accelerated version of NAMD (namd-cuda-2.12).
+"
+module load namd-cuda-2.12
+
+    echo -n "Proceeding with running NAMD2
+"
+    namd2 +p"$PROCS" simulation_rnd4-step1.namd | tee NAMD2_rnd4_step1.log &
+
+    echo -n "PROCESSING..."
+
+    spinner $!
+fi
+############################################################################
+############# Stop script from continuing if autoPSF fails #################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if [[ ! -f last_frame_rsr_rnd3_autopsf.psf ]] ; then
+       echo -n "
+The file last_frame_rsr_rnd3_autopsf.psf does not exsist!
+
+"
+       grep "Warning: This molecule contains" MDFF_rnd4.log
+       grep "Warning: I found some undefined atom types" MDFF_rnd4.log
+
+       echo -n "
+Terminating Namdinator!
+
+"
+       exit 1
+fi
+fi
+############################################################################
+############## Stop script from continuing if NAMD2 fails ##################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd4_step1.log; then
+
+    echo -n '
+
+NAMD2 have unfortunately stopped prematurely, see the below Error message for further details or consult the NAMD2 log file:
+
+'
+    grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd4_step1.log;
+
+    exit 1
+fi
+
+fi
+############################################################################
+###########Export last frame out from the last trajectory as a PDB##########
+############################################################################
+if [ "$MULTI" = "1" ]; then
+cat<<EOF > writepdb_rnd4.tcl
+
+mol new last_frame_rsr_rnd3_autopsf.pdb
+mol addfile last_frame_rsr_rnd3_autopsf.psf
+mol addfile simulation_rnd4-step1.coor
+animate write pdb last_frame_rnd4.pdb beg [expr [molinfo top get numframes] -1] end [expr [molinfo top get numframes] -1] skip 1 top
+EOF
+
+echo -n "
+Writing last frame of trajectory to last_frame_rnd4.pdb
+"
+
+if grep -F 'End of program' NAMD2_rnd4_step1.log >/dev/null 2>&1 ; then
+
+    vmd -dispdev text -eofexit <writepdb_rnd4.tcl> writepdb_rnd4.log
+
+fi
+fi
+
+############################################################################
+################Remove hydrogens from last frame rnd3 PDB###################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n '
+Renaming all HSD/HSE/HSP residues in last_frame_rnd4.pdb, back to HIS
+'
+
+sed -e 's/HSD/HIS/g; s/HSE/HIS/g; s/HSP/HIS/g' last_frame_rnd4.pdb > last_frame_rnd4_his.pdb
+
+
+while [ ! -f last_frame_rnd4_his.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Applying the default or user input B-factor value to all atoms in last_frame_rnd4.pdb
+'
+
+sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ $BF\.00\ /g" last_frame_rnd4_his.pdb > last_frame_rnd4_bf.pdb
+
+
+phenix.reduce -Trim last_frame_rnd4_bf.pdb > last_frame_rnd4_nohydro.pdb -Quiet
+
+echo -n '
+Removing hydrogens from last_frame_rnd4.pdb using Phenix.Reduce
+'
+while [ ! -f last_frame_rnd4_nohydro.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Renaming all GUA/URA/ADE/CYT/THY nucleotides, if present, back to single letter identifiers to enable phenix.real_space_refine to run.
+'
+sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_frame_rnd4_nohydro.pdb > last_frame_rnd4_nucleo.pdb
+
+
+mv -f last_frame_rnd3_nucleo.pdb last_frame_rnd4.pdb
+
+fi
+
+############################################################################
+##################Phenix real space refinement rnd4 ########################
+############################################################################
+
+if [ "$MULTI" = "1" ]; then
+
+cat <<EOF > phenix_rs_rnd4.sh
+
+phenix.real_space_refine last_frame_rnd4.pdb $MAPIN resolution=$RES
+
+EOF
+
+sh phenix_rs_rnd4.sh | tee phenix_rsr_rnd4.log &
+
+spinner $!
+
+mv -f last_frame_rnd3_real_space_refined.pdb last_frame_rsr_rnd4.pdb
+
+fi
+
+
+
 ############################################################################
 ################## Cross correlation coefficient check #####################
 ############################################################################
@@ -1010,18 +1198,26 @@ multiplot reset
 
 mol new last_frame.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+multiplot reset
 
 mol new last_frame_rsr.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
+multiplot reset
 
 mol new last_frame_rsr_rnd2.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr_rnd2.txt
+multiplot reset
 
-mol new last_frame_rsr_rnd2.pdb
+mol new last_frame_rsr_rnd3.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr_rnd3.txt
+multiplot reset
 
-mol new last_frame_rsr_rnd2_autopsf.psf
-mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+mol new last_frame_rsr_rnd4.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr_rnd4.txt
+multiplot reset
+
+mol new last_frame_rsr_rnd3_autopsf.psf
+mol addfile simulation_rnd4-step1.dcd type dcd first 0 last -1 waitfor all top
 
 set incre [ expr $NUMS/1000]
 for {set i 0} {\$i < \$incre} {incr i 1} { 
@@ -1193,7 +1389,16 @@ set out5 [open lf_rsr_rnd3_cis.log w]
 puts \$out5 [cispeptide check -mol top]
 close \$out5
 cispeptide reset
+
+
+mol new last_frame_rsr_rnd4.pdb
+set out6 [open lf_rsr_rnd4_cis.log w]
+puts \$out6 [cispeptide check -mol top]
+close \$out6
+cispeptide reset
 EOF
+
+
 
 vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID[7]=$!
 
@@ -1242,6 +1447,11 @@ phenix.rotalyze last_frame_rsr_rnd3.pdb > rota_lf_rsr_rnd3.log
 phenix.cbetadev last_frame_rsr_rnd3.pdb > cbeta_lf_rsr_rnd3.log
 phenix.clashscore last_frame_rsr_rnd3.pdb > clash_lf_rsr_rnd3.log
 
+phenix.ramalyze last_frame_rsr_rnd4.pdb > rama_lf_rsr_rnd4.log
+phenix.rotalyze last_frame_rsr_rnd4.pdb > rota_lf_rsr_rnd4.log
+phenix.cbetadev last_frame_rsr_rnd4.pdb > cbeta_lf_rsr_rnd4.log
+phenix.clashscore last_frame_rsr_rnd4.pdb > clash_lf_rsr_rnd4.log
+
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log
 phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log
@@ -1267,6 +1477,11 @@ phenix.ramalyze last_frame_rsr_rnd3.pdb > rama_lf_rsr_rnd3.log & PID[29]=$!
 phenix.rotalyze last_frame_rsr_rnd3.pdb > rota_lf_rsr_rnd3.log & PID[30]=$!
 phenix.cbetadev last_frame_rsr_rnd3.pdb > cbeta_lf_rsr_rnd3.log & PID[31]=$!
 phenix.clashscore last_frame_rsr_rnd3.pdb > clash_lf_rsr_rnd3.log & PID[32]=$!
+
+phenix.ramalyze last_frame_rsr_rnd4.pdb > rama_lf_rsr_rnd4.log & PID[33]=$!
+phenix.rotalyze last_frame_rsr_rnd4.pdb > rota_lf_rsr_rnd4.log & PID[34]=$!
+phenix.cbetadev last_frame_rsr_rnd4.pdb > cbeta_lf_rsr_rnd4.log & PID[35]=$!
+phenix.clashscore last_frame_rsr_rnd4.pdb > clash_lf_rsr_rnd4.log & PID[36]=$!
 
 
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log & PID[8]=$!
@@ -1353,9 +1568,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[37]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[38]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd4.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd4.sc > lf_rsr_rnd4_rosetta.log & PID[39]=$!
 
 
 
@@ -1386,9 +1603,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[37]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[38]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd4.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd4.sc > lf_rsr_rnd4_rosetta.log & PID[39]=$!
 
 
 
@@ -1417,9 +1636,11 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[37]=$!
 
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[38]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd4.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd4.sc > lf_rsr_rnd4_rosetta.log & PID[39]=$!
 
 
 
@@ -1540,9 +1761,11 @@ per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:sil
 
 per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out > lf_rsr_perRes.log & PID[25]=$! 
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -out:file:silent lfr_rnd2.out> lf_rsr_rnd2_perRes.log  & PID[35]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -out:file:silent lfr_rnd2.out> lf_rsr_rnd2_perRes.log  & PID[40]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -out:file:silent lfr_rnd3.out> lf_rsr_rnd3_perRes.log  & PID[36]=$! 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -out:file:silent lfr_rnd3.out> lf_rsr_rnd3_perRes.log  & PID[41]=$!
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd4.pdb -out:file:silent lfr_rnd4.out> lf_rsr_rnd4_perRes.log  & PID[42]=$! 
 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
@@ -1625,6 +1848,8 @@ sort -k21 -n -r lfr_rnd2.out > lf_rsr_rnd2_perRes.sc
 rm lfr_rnd2.out
 sort -k21 -n -r lfr_rnd3.out > lf_rsr_rnd3_perRes.sc
 rm lfr_rnd3.out
+sort -k21 -n -r lfr_rnd4.out > lf_rsr_rnd4_perRes.sc
+rm lfr_rnd4.out
 
 EOF
 
@@ -1635,6 +1860,7 @@ awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
 awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
 awk 'NR<=10' lf_rsr_rnd2_perRes.sc | awk '{print $3, $21}' > pr4.sc
 awk 'NR<=10' lf_rsr_rnd3_perRes.sc | awk '{print $3, $21}' > pr5.sc
+awk 'NR<=10' lf_rsr_rnd4_perRes.sc | awk '{print $3, $21}' > pr6.sc
 
 
 else
@@ -1668,48 +1894,56 @@ CCC2=$(awk '{print $2}' ccc_lastframe.txt)
 CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
 CCC4=$(awk '{print $2}' ccc_lastframe_rsr_rnd2.txt)
 CCC5=$(awk '{print $2}' ccc_lastframe_rsr_rnd3.txt)
+CCC6=$(awk '{print $2}' ccc_lastframe_rsr_rnd4.txt)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
 claLFR=$(awk 'END {print $NF}' clash_last_frame_rsr.log)
 claLFR2=$(awk 'END {print $NF}' clash_lf_rsr_rnd2.log)
-claLFR3=$(awk 'END {print $NF}' clash_lf_rsr_rnd3.log)
+claLFR3=$(awk 'END {print $NF}' clash_lf_rsr_rnd3.log
+claLFR4=$(awk 'END {print $NF}' clash_lf_rsr_rnd4.log)
 
 FAVINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $2}' | head -n1)
 FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
 FAVLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $2}' | head -n1)
 FAVLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $2}' | head -n1)
 FAVLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $2}' | head -n1)
+FAVLFR4=$(grep SUMMARY rama_lf_rsr_rnd4.log | awk '{print $2}' | head -n1)
 
 ALWINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $4}' | head -n1)
 ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
 ALWLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $4}' | head -n1)
 ALWLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $4}' | head -n1)
 ALWLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $4}' | head -n1)
+ALWLFR4=$(grep SUMMARY rama_lf_rsr_rnd4.log | awk '{print $4}' | head -n1)
 
 OUTINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $6}' | head -n1)
 OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
 OUTLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $6}' | head -n1)
 OUTLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $6}' | head -n1)
 OUTLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $6}' | head -n1)
+OUTLFR4=$(grep SUMMARY rama_lf_rsr_rnd4.log | awk '{print $6}' | head -n1)
 
 CBEINP=$(grep "SUMMARY" cbeta_"$PDB".log | awk '{print $2}')
 CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
 CBELFR=$(grep "SUMMARY" cbeta_last_frame_rsr.log | awk '{print $2}')
 CBELFR2=$(grep "SUMMARY" cbeta_lf_rsr_rnd2.log | awk '{print $2}')
 CBELFR3=$(grep "SUMMARY" cbeta_lf_rsr_rnd3.log | awk '{print $2}')
+CBELFR4=$(grep "SUMMARY" cbeta_lf_rsr_rnd4.log | awk '{print $2}')
 
 ROTINP=$(grep "SUMMARY" rota_"$PDB".log | awk '{print $2}')
 ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
 ROTLFR=$(grep "SUMMARY" rota_last_frame_rsr.log | awk '{print $2}')
 ROTLFR2=$(grep "SUMMARY" rota_lf_rsr_rnd2.log | awk '{print $2}')
 ROTLFR3=$(grep "SUMMARY" rota_lf_rsr_rnd3.log | awk '{print $2}')
+ROTLFR4=$(grep "SUMMARY" rota_lf_rsr_rnd4.log | awk '{print $2}')
 
 CISINP=$(awk '{print $1}' ${PDB}_cis.log)
 CISLF=$(awk '{print $1}' last_frame_cis.log)
 CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
 CISLFR2=$(awk '{print $1}' lf_rsr_rnd2_cis.log)
 CISLFR3=$(awk '{print $1}' lf_rsr_rnd3_cis.log)
+CISLFR4=$(awk '{print $1}' lf_rsr_rnd4_cis.log)
 
 
 ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
@@ -1717,6 +1951,7 @@ ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
 ROSLFR=$(awk 'NR==3' lf_rsr.sc | awk '{print $2}')
 ROSLFR2=$(awk 'NR==3' lf_rsr_rnd2.sc | awk '{print $2}')
 ROSLFR3=$(awk 'NR==3' lf_rsr_rnd3.sc | awk '{print $2}')
+ROSLFR4=$(awk 'NR==3' lf_rsr_rnd4.sc | awk '{print $2}')
 
 
 INP=INP
@@ -1724,6 +1959,7 @@ LF=LF
 LFR=LFR
 LFR2=LFR2
 LFR3=LFR3
+LFR4=LFR4
 
  else
 
@@ -1773,32 +2009,33 @@ INP = "$PDBIN" > This is the input PDB file.
 LF = last_frame.pdb    > This is the output PDB file from the MD simulation (last frame of the trajectory).
 LFR = last_frame_rsr.pdb  > Output PDB file from the Phenix real space refinement run on last_frame.pdb.
 LFR2 = last_frame_rsr_rnd2.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr.pdb.
-LFR3 = last_frame_rsr_rnd3.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr_rnd2.pdb.
+LFR3 = last_frame_rsr_rnd3.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr_rnd2.pdb
+LFR4 = last_frame_rsr_rnd4.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr_rnd3.pdb.
 CCC = Cross correlation coefficient between "$MAP"."$MAPEXT" and either of the above PDB files.
 "
 
 echo ""
-printf "+-----------------------------------------------------------------------------------+\n"
-printf "|                  | %10s | %10s | %10s | %10s | %10s |          \n" $INP $LF $LFR $LFR2 $LFR3 
-printf "+-----------------------------------------------------------------------------------+\n"
-printf "|  Clashscore:     | %10s | %10s | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR $claLFR2 $claLFR3
-printf "|  Favored:        | %10s | %10s | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR $FAVLFR2 $FAVLFR3
-printf "|  Allowed :       | %10s | %10s | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR $ALWLFR2 $ALWLFR3
-printf "|  Outliers:       | %10s | %10s | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR $OUTLFR2 $OUTLFR3
-printf "|  C-beta dev:     | %10s | %10s | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR $CBELFR2 $CBELFR3
-printf "|  Rota-outliers:  | %10s | %10s | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR $ROTLFR2 $ROTLFR3
-printf "|  CCC:            | %10s | %10s | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7} ${CCC4:0:7} ${CCC5:0:7}
-printf "|  Cis-Peptides:   | %10s | %10s | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR $CISLFR2 $CISLFR3
-printf "|  Rosetta score:  | %10s | %10s | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7} ${ROSLFR2:0:7} ${ROSLFR3:0:7}
-printf "+-----------------------------------------------------------------------------------+\n"
+printf "+----------------------------------------------------------------------------------------+\n"
+printf "|                  | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $INP $LF $LFR $LFR2 $LFR3 $LFR4 
+printf "+----------------------------------------------------------------------------------------+\n"
+printf "|  Clashscore:     | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR $claLFR2 $claLFR3 $claLFR4
+printf "|  Favored:        | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR $FAVLFR2 $FAVLFR3 $FAVLFR4
+printf "|  Allowed :       | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR $ALWLFR2 $ALWLFR3 $ALWLFR4
+printf "|  Outliers:       | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR $OUTLFR2 $OUTLFR3 $OUTLFR4
+printf "|  C-beta dev:     | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR $CBELFR2 $CBELFR3 $CBELFR4
+printf "|  Rota-outliers:  | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR $ROTLFR2 $ROTLFR3 $ROTLFR4
+printf "|  CCC:            | %10s | %10s | %10s | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7} ${CCC4:0:7} ${CCC5:0:7} ${CCC6:0:7}
+printf "|  Cis-Peptides:   | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR $CISLFR2 $CISLFR3 $CISLFR4
+printf "|  Rosetta score:  | %10s | %10s | %10s | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7} ${ROSLFR2:0:7} ${ROSLFR3:0:7} ${ROSLFR4:0:7}
+printf "+----------------------------------------------------------------------------------------+\n"
 echo ""
 
 
 if [ "$MULTI" = "1" ]; then
 
-    pr -mts pr.sc pr2.sc pr3.sc pr4.sc pr5.sc > perRes_scores_all.sc
+    pr -mts pr.sc pr2.sc pr3.sc pr4.sc pr5.sc pr6.sc > perRes_scores_all.sc
 
-    sed -i '1s/^/ Resid_inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR Resid_LFR2 Score_LFR2 Resid_LFR3 Score_LFR3\n/' perRes_scores_all.sc
+    sed -i '1s/^/ Resid_inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR Resid_LFR2 Score_LFR2 Resid_LFR3 Score_LFR3 Resid_LFR4 Score_LFR4\n/' perRes_scores_all.sc
 
 else
 
@@ -1849,8 +2086,7 @@ mv ccc_*.txt $DIREC1/ 2> /dev/null
 mv all_frames_clash.txt $DIREC1/ 2> /dev/null
 mv gnuplot*.sh $DIREC3/ 2> /dev/null
 mv phenix_rs.sh $DIREC3/ 2> /dev/null
-mv phenix_rs_rnd2.sh $DIREC3/ 2> /dev/null
-mv phenix_rs_rnd3.sh $DIREC3/ 2> /dev/null
+mv phenix_rs_rnd*.sh $DIREC3/ 2> /dev/null
 mv rosetta.sh $DIREC3/ 2> /dev/null
 mv rosetta_resi.sh $DIREC3/ 2> /dev/null
 mv sort_perResi_Score.sh $DIREC3/ 2> /dev/null
