@@ -25,8 +25,6 @@ module load rosetta_mpi_2017.08.59291
 ############################################################################
 ############################################################################
 ############################################################################
-
-
 ############################################################################
 ########### You can alter the below parameters for the MDFF setup,##########
 ########### otherwise the stated default values will be used.     ##########
@@ -132,7 +130,7 @@ Enjoy
 EOF
 }
 
-while getopts “hp:m:n:b:g:e:t:f:s:r:lx” OPTION
+while getopts “hp:m:n:b:g:e:t:f:s:r:lx:lz” OPTION
 do
     case $OPTION in
          h)
@@ -174,6 +172,9 @@ do
             ;;
         x)
             PHENIXRS=1
+            ;;
+        z)
+            MULTI=1
             ;;
         ?)
              usage
@@ -315,7 +316,7 @@ if [ "$RES" = "" ]; then
     fi
 
 
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
     if grep -q -E ^CRYST1 "$PDBIN"; then
 
@@ -517,24 +518,6 @@ NAMD2 have unfortunately stopped prematurely, see the below Error message for fu
     exit 1
 fi
 
-############################################################################
-##################Creating a VMD visualizing .tcl scrip#####################
-############################################################################
-cat <<EOF > visualize_trj.tcl
-
-color Display Background white
-mol new $MAP.$MAPEXT
-mol modcolor 0 top colorID 2
-mol modstyle 0 top Isosurface 0.103826 0 0 1 1 1
-mol new data_files/${PDB}_autopsf.psf
-mol addfile data_files/simulation-step1.dcd
-mol modstyle 0 top NewCartoon
-mol modcolor 0 top colorID 0
-animate forward
-animate style loop
-menu graphics on
-menu tkcon on
-EOF
 
 ############################################################################
 ###########Export last frame out from the last trajectory as a PDB##########
@@ -601,12 +584,11 @@ mv -f last_frame_nucleo.pdb last_frame.pdb
 ######################Phenix real space refinement #########################
 ############################################################################
 
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 cat <<EOF > phenix_rs.sh
 
-phenix.real_space_refine last_frame.pdb $MAPIN resolution=$RES
-
+phenix.real_space_refine last_frame.pdb $MAPIN resolution=$RES macro_cycles=1
 EOF
 
 sh phenix_rs.sh | tee phenix_rsr.log &
@@ -617,12 +599,391 @@ mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
 
 fi
 
+###########################################################################
+########################## 2nd macro cycle ################################
+###########################################################################
+
+if [ "$MULTI" = "1" ]; then 
+
+echo -n "Initiating second macro cycle of NAMD & RSR
+"
+
+    
+REST2="last_frame_rsr-extrabonds.txt last_frame_rsr-extrabonds-cis.txt last_frame_rsr-extrabonds-chi.txt"
+
+echo -n "Running AutoPSF on last_frame_rsr.pdb
+
+Generating the following restraint files for last_frame_rsr.pdb
+
+"$REST2"
+
+Generating simulation files for NAMD2
+
+"
+cat<<EOF > "MDFF_setup_rnd2.tcl"
+package require ssrestraints
+package require mdff
+package require autopsf
+package require cispeptide
+package require chirality
+mol new last_frame_rsr.pdb
+autopsf -mol 0
+cispeptide restrain -o last_frame_rsr-extrabonds-cis.txt
+chirality restrain -o last_frame_rsr-extrabonds-chi.txt
+ssrestraints -psf last_frame_rsr_autopsf.psf -pdb last_frame_rsr_autopsf.pdb -o last_frame_rsr-extrabonds.txt -hbonds
+mdff gridpdb -psf last_frame_rsr_autopsf.psf -pdb last_frame_rsr_autopsf.pdb -o last_frame_rsr-grid.pdb
+mdff griddx -i $MAP.$MAPEXT -o $MAP-grid.dx
+mdff setup -o simulation_rnd2 -psf last_frame_rsr_autopsf.psf -pdb last_frame_rsr_autopsf.pdb -griddx $MAP-grid.dx -gridpdb last_frame_rsr-grid.pdb -extrab {$REST2} -parfiles {$PARAMS} -temp $ITEMP -ftemp $FTEMP -gscale $GS -numsteps $NUMS -minsteps $EM
+
+EOF
+
+vmd -dispdev text -eofexit <MDFF_setup_rnd2.tcl> MDFF_rnd2.log &
+echo -n "PROCESSING..."
+
+    spinner $!
+
+cat MDFF_rnd2.log
+
+while [ ! -f simulation_rnd2-step1.namd ] ; do
+
+     sleep 1
+done
+fi
+
+############################################################################
+##################Running MDFF generated files in NAMD rnd2#################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n "
+Trying to module load the CUDA accelerated version of NAMD (namd-cuda-2.12).
+"
+module load namd-cuda-2.12
+
+    echo -n "Proceeding with running NAMD2
+"
+    namd2 +p"$PROCS" simulation_rnd2-step1.namd | tee NAMD2_rnd2_step1.log &
+
+    echo -n "PROCESSING..."
+
+    spinner $!
+fi
+############################################################################
+############# Stop script from continuing if autoPSF fails rnd2 ############
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if [[ ! -f last_frame_rsr_autopsf.psf ]] ; then
+       echo -n "
+The file last_frame_rsr_autopsf.psf does not exsist!
+
+"
+       grep "Warning: This molecule contains" MDFF_rnd2.log
+       grep "Warning: I found some undefined atom types" MDFF_rnd2.log
+
+       echo -n "
+Terminating Namdinator!
+
+"
+       exit 1
+fi
+fi
+############################################################################
+############## Stop script from continuing if NAMD2 fails rnd2##############
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd2_step1.log; then
+
+    echo -n '
+
+NAMD2 have unfortunately stopped prematurely, see the below Error message for further details or consult the NAMD2 log file:
+
+'
+    grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd2_step1.log;
+
+    exit 1
+fi
+
+fi
+############################################################################
+##########Export last frame out from the last trajectory as a PDB rnd2#######
+############################################################################
+if [ "$MULTI" = "1" ]; then
+cat<<EOF > writepdb_rnd2.tcl
+
+mol new last_frame_rsr_autopsf.pdb
+mol addfile last_frame_rsr_autopsf.psf
+mol addfile simulation_rnd2-step1.coor
+animate write pdb last_frame_rnd2.pdb beg [expr [molinfo top get numframes] -1] end [expr [molinfo top get numframes] -1] skip 1 top
+EOF
+
+echo -n "
+Writing last frame of trajectory to last_frame_rnd2.pdb
+"
+
+if grep -F 'End of program' NAMD2_rnd2_step1.log >/dev/null 2>&1 ; then
+
+    vmd -dispdev text -eofexit <writepdb_rnd2.tcl> writepdb_rnd2.log
+
+fi
+fi
+
+############################################################################
+################Remove hydrogens from last frame rnd2 PDB###################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n '
+Renaming all HSD/HSE/HSP residues in last_frame_rnd2.pdb, back to HIS
+'
+
+sed -e 's/HSD/HIS/g; s/HSE/HIS/g; s/HSP/HIS/g' last_frame_rnd2.pdb > last_frame_rnd2_his.pdb
+
+
+while [ ! -f last_frame_rnd2_his.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Applying the default or user input B-factor value to all atoms in last_frame_rnd2.pdb
+'
+
+sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ $BF\.00\ /g" last_frame_rnd2_his.pdb > last_frame_rnd2_bf.pdb
+
+
+phenix.reduce -Trim last_frame_rnd2_bf.pdb > last_frame_rnd2_nohydro.pdb -Quiet
+
+echo -n '
+Removing hydrogens from last_frame_rnd2.pdb using Phenix.Reduce
+'
+while [ ! -f last_frame_rnd2_nohydro.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Renaming all GUA/URA/ADE/CYT/THY nucleotides, if present, back to single letter identifiers to enable phenix.real_space_refine to run.
+'
+sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_frame_rnd2_nohydro.pdb > last_frame_rnd2_nucleo.pdb
+
+
+mv -f last_frame_rnd2_nucleo.pdb last_frame_rnd2.pdb
+
+fi
+
+############################################################################
+##################Phenix real space refinement rnd2 ########################
+############################################################################
+
+echo -n "Initiating second round of Phenix.real_space_refine
+"
+if [ "$MULTI" = "1" ]; then
+
+cat <<EOF > phenix_rs_rnd2.sh
+g
+phenix.real_space_refine last_frame_rnd2.pdb $MAPIN resolution=$RES macro_cycles=1
+
+EOF
+
+sh phenix_rs_rnd2.sh | tee phenix_rsr_rnd2.log &
+
+spinner $!
+
+mv -f last_frame_rnd2_real_space_refined.pdb last_frame_rsr_rnd2.pdb
+
+fi
+
+###########################################################################
+########################## 3th macro cycle ################################
+###########################################################################
+if [ "$MULTI" = "1" ]; then 
+
+echo -n "Initiating thrid macro cycle of NAMD & RSR
+"
+
+REST3="last_frame_rsr_rnd2-extrabonds.txt last_frame_rsr_rnd2-extrabonds-cis.txt last_frame_rsr_rnd2-extrabonds-chi.txt"
+
+echo -n "Running AutoPSF on last_frame_rsr_rnd2.pdb
+
+Generating the following restraint files for last_frame_rsr_rnd2.pdb
+
+"$REST3"
+
+Generating simulation files for NAMD2
+
+"
+cat<<EOF > "MDFF_setup_rnd3.tcl"
+package require ssrestraints
+package require mdff
+package require autopsf
+package require cispeptide
+package require chirality
+mol new last_frame_rsr_rnd2.pdb
+autopsf -mol 0
+cispeptide restrain -o last_frame_rsr_rnd2-extrabonds-cis.txt
+chirality restrain -o last_frame_rsr_rnd2-extrabonds-chi.txt
+ssrestraints -psf last_frame_rsr_rnd2_autopsf.psf -pdb last_frame_rsr_rnd2_autopsf.pdb -o last_frame_rsr_rnd2-extrabonds.txt -hbonds
+mdff gridpdb -psf last_frame_rsr_rnd2_autopsf.psf -pdb last_frame_rsr_rnd2_autopsf.pdb -o last_frame_rsr_rnd2-grid.pdb
+mdff griddx -i $MAP.$MAPEXT -o $MAP-grid.dx
+mdff setup -o simulation_rnd3 -psf last_frame_rsr_rnd2_autopsf.psf -pdb last_frame_rsr_rnd2_autopsf.pdb -griddx $MAP-grid.dx -gridpdb last_frame_rsr_rnd2-grid.pdb -extrab {$REST3} -parfiles {$PARAMS} -temp $ITEMP -ftemp $FTEMP -gscale $GS -numsteps $NUMS -minsteps $EM
+
+EOF
+
+vmd -dispdev text -eofexit <MDFF_setup_rnd3.tcl> MDFF_rnd3.log &
+echo -n "PROCESSING..."
+
+    spinner $!
+
+cat MDFF_rnd3.log
+
+while [ ! -f simulation_rnd3-step1.namd ] ; do
+
+     sleep 1
+done
+fi
+
+############################################################################
+##################Running MDFF generated files in NAMD #####################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n "
+Trying to module load the CUDA accelerated version of NAMD (namd-cuda-2.12).
+"
+module load namd-cuda-2.12
+
+    echo -n "Proceeding with running NAMD2
+"
+    namd2 +p"$PROCS" simulation_rnd3-step1.namd | tee NAMD2_rnd3_step1.log &
+
+    echo -n "PROCESSING..."
+
+    spinner $!
+fi
+############################################################################
+############# Stop script from continuing if autoPSF fails #################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if [[ ! -f last_frame_rsr_rnd2_autopsf.psf ]] ; then
+       echo -n "
+The file last_frame_rsr_rnd2_autopsf.psf does not exsist!
+
+"
+       grep "Warning: This molecule contains" MDFF_rnd3.log
+       grep "Warning: I found some undefined atom types" MDFF_rnd3.log
+
+       echo -n "
+Terminating Namdinator!
+
+"
+       exit 1
+fi
+fi
+############################################################################
+############## Stop script from continuing if NAMD2 fails ##################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd3_step1.log; then
+
+    echo -n '
+
+NAMD2 have unfortunately stopped prematurely, see the below Error message for further details or consult the NAMD2 log file:
+
+'
+    grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_rnd3_step1.log;
+
+    exit 1
+fi
+
+fi
+############################################################################
+###########Export last frame out from the last trajectory as a PDB##########
+############################################################################
+if [ "$MULTI" = "1" ]; then
+cat<<EOF > writepdb_rnd3.tcl
+
+mol new last_frame_rsr_rnd2_autopsf.pdb
+mol addfile last_frame_rsr_rnd2_autopsf.psf
+mol addfile simulation_rnd3-step1.coor
+animate write pdb last_frame_rnd3.pdb beg [expr [molinfo top get numframes] -1] end [expr [molinfo top get numframes] -1] skip 1 top
+EOF
+
+echo -n "
+Writing last frame of trajectory to last_frame_rnd3.pdb
+"
+
+if grep -F 'End of program' NAMD2_rnd3_step1.log >/dev/null 2>&1 ; then
+
+    vmd -dispdev text -eofexit <writepdb_rnd3.tcl> writepdb_rnd3.log
+
+fi
+fi
+
+############################################################################
+################Remove hydrogens from last frame rnd3 PDB###################
+############################################################################
+if [ "$MULTI" = "1" ]; then
+echo -n '
+Renaming all HSD/HSE/HSP residues in last_frame_rnd3.pdb, back to HIS
+'
+
+sed -e 's/HSD/HIS/g; s/HSE/HIS/g; s/HSP/HIS/g' last_frame_rnd3.pdb > last_frame_rnd3_his.pdb
+
+
+while [ ! -f last_frame_rnd3_his.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Applying the default or user input B-factor value to all atoms in last_frame_rnd3.pdb
+'
+
+sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ $BF\.00\ /g" last_frame_rnd3_his.pdb > last_frame_rnd3_bf.pdb
+
+
+phenix.reduce -Trim last_frame_rnd3_bf.pdb > last_frame_rnd3_nohydro.pdb -Quiet
+
+echo -n '
+Removing hydrogens from last_frame_rnd3.pdb using Phenix.Reduce
+'
+while [ ! -f last_frame_rnd3_nohydro.pdb ] ; do
+
+     sleep 1
+done
+
+echo -n '
+Renaming all GUA/URA/ADE/CYT/THY nucleotides, if present, back to single letter identifiers to enable phenix.real_space_refine to run.
+'
+sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_frame_rnd3_nohydro.pdb > last_frame_rnd3_nucleo.pdb
+
+
+mv -f last_frame_rnd3_nucleo.pdb last_frame_rnd3.pdb
+
+fi
+
+############################################################################
+##################Phenix real space refinement rnd3 ########################
+############################################################################
+
+if [ "$MULTI" = "1" ]; then
+
+cat <<EOF > phenix_rs_rnd3.sh
+
+phenix.real_space_refine last_frame_rnd3.pdb $MAPIN resolution=$RES macro_cycles=1
+
+EOF
+
+sh phenix_rs_rnd3.sh | tee phenix_rsr_rnd3.log &
+
+spinner $!
+
+mv -f last_frame_rnd3_real_space_refined.pdb last_frame_rsr_rnd3.pdb
+
+fi
 
 ############################################################################
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 cat<<EOF > CCC_check.tcl
 
@@ -640,12 +1001,30 @@ multiplot reset
 
 mol new last_frame.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+multiplot reset
+
+mol new last_frame_rnd2.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rnd2.txt
+multiplot reset
+
+mol new last_frame_rnd3.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rnd3.txt
+multiplot reset
 
 mol new last_frame_rsr.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
+multiplot reset
 
-mol new ${PDB}_autopsf.psf
-mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+mol new last_frame_rsr_rnd2.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr_rnd2.txt
+multiplot reset
+
+mol new last_frame_rsr_rnd3.pdb
+mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr_rnd3.txt
+multiplot reset
+
+mol new last_frame_rsr_rnd2_autopsf.psf
+mol addfile simulation_rnd3-step1.dcd type dcd first 0 last -1 waitfor all top
 
 set incre [ expr $NUMS/1000]
 for {set i 0} {\$i < \$incre} {incr i 1} { 
@@ -660,7 +1039,6 @@ Calculating the CCC between the model from each frame of the trajectory simulati
 vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 
 spinner $!
-
 
 else
 
@@ -735,20 +1113,16 @@ for i in \$(ls -1v frame*.pdb); do
     sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$i > \$f-bf.pdb
 done
 
-NUM=0
 for i in \$(ls -1v frame*-bf.pdb); do
-    NUM=\$(( \$NUM + 1 ))
+
     f=\$(echo \$i| cut -d\. -f1)
-
-    while [ \$(pgrep -f clashscore.py | wc -l) -ge $PROCS ]; do
-    sleep 1
-    done
-
+  
     phenix.clashscore \$i > \$f.log & pids[\${NUM}]=\$!
 done
 
 for pid in \${pids[*]}; do
-    wait \$pid     
+     while lsof -p \$pid > /dev/null 2>&1; do
+    sleep 3
 done
 
 done
@@ -760,7 +1134,7 @@ chmod +x clash_allframes.sh
 ./clash_allframes.sh & PID[4]=$!
 
 echo -n "
-Calculating Clashscores for all individual frames from the trajectory
+Calculating Clashscores for all individual frames from the last trajectory
 "
 
 ############################################################################
@@ -788,7 +1162,7 @@ EOF
 ################ Calculatiing  number of cispeptide ########################
 ############################################################################
 
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 cat<<EOF > cispeptides.tcl
 package require cispeptide
@@ -805,10 +1179,34 @@ puts \$out2 [cispeptide check -mol top]
 close \$out2
 cispeptide reset
 
+mol new last_frame_rnd2.pdb
+set out7 [open last_frame_rnd2_cis.log w]
+puts \$out7 [cispeptide check -mol top]
+close \$out7
+cispeptide reset
+
+mol new last_frame_rnd3.pdb
+set out8 [open last_frame_rnd3_cis.log w]
+puts \$out8 [cispeptide check -mol top]
+close \$out8
+cispeptide reset
+
 mol new last_frame_rsr.pdb
 set out3 [open last_frame_rsr_cis.log w]
 puts \$out3 [cispeptide check -mol top]
 close \$out3
+cispeptide reset
+
+mol new last_frame_rsr_rnd2.pdb
+set out4 [open lf_rsr_rnd2_cis.log w]
+puts \$out4 [cispeptide check -mol top]
+close \$out4
+cispeptide reset
+
+mol new last_frame_rsr_rnd3.pdb
+set out5 [open lf_rsr_rnd3_cis.log w]
+puts \$out5 [cispeptide check -mol top]
+close \$out5
 cispeptide reset
 EOF
 
@@ -845,9 +1243,19 @@ echo -n "Identifying Cispeptides in input PDB file and output PDB file
 ############################################################################
 ##################### Validation checks of PDB files #######################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 cat<<EOF > molpro.sh
+
+phenix.ramalyze last_frame_rsr_rnd2.pdb > rama_lf_rsr_rnd2.log
+phenix.rotalyze last_frame_rsr_rnd2.pdb > rota_lf_rsr_rnd2.log
+phenix.cbetadev last_frame_rsr_rnd2.pdb > cbeta_lf_rsr_rnd2.log
+phenix.clashscore last_frame_rsr_rnd2.pdb > clash_lf_rsr_rnd2.log
+
+phenix.ramalyze last_frame_rsr_rnd3.pdb > rama_lf_rsr_rnd3.log
+phenix.rotalyze last_frame_rsr_rnd3.pdb > rota_lf_rsr_rnd3.log
+phenix.cbetadev last_frame_rsr_rnd3.pdb > cbeta_lf_rsr_rnd3.log
+phenix.clashscore last_frame_rsr_rnd3.pdb > clash_lf_rsr_rnd3.log
 
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log
@@ -865,15 +1273,36 @@ phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
 phenix.clashscore $PDB.pdb > clash_$PDB.log
 EOF
 
+phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID[12]=$!
+phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID1[13]=$!
+phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID[14]=$!
+phenix.clashscore last_frame.pdb > clash_last_frame.log & PID[15]=$!
+
+phenix.ramalyze last_frame_rnd2.pdb > rama_last_frame_rnd2.log & PID[37]=$!
+phenix.rotalyze last_frame_rnd2.pdb > rota_last_frame_rnd2.log & PID1[38]=$!
+phenix.cbetadev last_frame_rnd2.pdb > cbeta_last_frame_rnd2.log & PID[39]=$!
+phenix.clashscore last_frame_rnd2.pdb > clash_last_frame_rnd2.log & PID[40]=$!
+
+phenix.ramalyze last_frame_rnd3.pdb > rama_last_frame_rnd3.log & PID[41]=$!
+phenix.rotalyze last_frame_rnd3.pdb > rota_last_frame_rnd3.log & PID1[42]=$!
+phenix.cbetadev last_frame_rnd3.pdb > cbeta_last_frame_rnd3.log & PID[43]=$!
+phenix.clashscore last_frame_rnd3.pdb > clash_last_frame_rnd3.log & PID[44]=$!
+
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log & PID[8]=$!
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log & PID[9]=$!
 phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log & PID[10]=$!
 phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log & PID[11]=$!
 
-phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID[12]=$!
-phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID1[13]=$!
-phenix.cbetadev last_frame.pdb > cbeta_last_frame.log & PID[14]=$!
-phenix.clashscore last_frame.pdb > clash_last_frame.log & PID[15]=$!
+phenix.ramalyze last_frame_rsr_rnd2.pdb > rama_lf_rsr_rnd2.log & PID[25]=$!
+phenix.rotalyze last_frame_rsr_rnd2.pdb > rota_lf_rsr_rnd2.log & PID[26]=$!
+phenix.cbetadev last_frame_rsr_rnd2.pdb > cbeta_lf_rsr_rnd2.log & PID[27]=$!
+phenix.clashscore last_frame_rsr_rnd2.pdb > clash_lf_rsr_rnd2.log & PID[28]=$!
+
+phenix.ramalyze last_frame_rsr_rnd3.pdb > rama_lf_rsr_rnd3.log & PID[29]=$!
+phenix.rotalyze last_frame_rsr_rnd3.pdb > rota_lf_rsr_rnd3.log & PID[30]=$!
+phenix.cbetadev last_frame_rsr_rnd3.pdb > cbeta_lf_rsr_rnd3.log & PID[31]=$!
+phenix.clashscore last_frame_rsr_rnd3.pdb > clash_lf_rsr_rnd3.log & PID[32]=$!
+
 
 phenix.ramalyze $PDB.pdb > rama_$PDB.log & PID[16]=$!
 phenix.rotalyze $PDB.pdb > rota_$PDB.log & PID[17]=$!
@@ -916,9 +1345,21 @@ Running Molprobity valdations tools on input and output PDB files
  
 
 ############################################################################
+######################## wait for all PIDS to finish #######################
+############################################################################
+
+for PIDS in ${PID[*]};do
+     #echo "check wait on $(ps -p $PIDS -o comm=)"
+     while lsof -p $PIDS > /dev/null 2>&1; do
+	 spinner $!
+        #echo "wating on $(ps -p $PIDS -o comm=) to finish"
+     done
+done
+
+############################################################################
 ###############Rosetta score for whole model against map ###################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 LIMHIGH=4.0
 LIMLOW=3.5
@@ -937,13 +1378,27 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log
+
 EOF
 
 score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd2.sc > lf_rnd2_rosetta.log & PID[45]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd3.sc > lf_rnd3_rosetta.log & PID[46]=$!
+
+
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+
 
 
 echo -n "
@@ -960,13 +1415,28 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
+score_jd2.mpi.linuxgccrelease -in:file:s lf_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s lf_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log
+
+
 EOF
 
 score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd2.sc > lf_rnd2_rosetta.log & PID[45]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd3.sc > lf_rnd3_rosetta.log & PID[46]=$!
+
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+
+
 
 echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
@@ -981,13 +1451,26 @@ score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
 
+score_jd2.mpi.linuxgccrelease -in:file:s lf_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log
+
+score_jd2.mpi.linuxgccrelease -in:file:s lf_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log
+
 EOF
 
 score_jd2.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB}.sc > ${PDB}_rosetta.log & PID[20]=$!
 
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
 
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd2.sc > lf_rnd_2rosetta.log & PID[45]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rnd3.sc > lf_rnd3_rosetta.log & PID[46]=$!
+
 score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd2.sc > lf_rsr_rnd2_rosetta.log & PID[33]=$!
+
+score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -ignore_unrecognized_res -edensity::mapfile ${MAP}.mrc -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr_rnd3.sc > lf_rsr_rnd3_rosetta.log & PID[34]=$!
+
 
 
 echo -n "
@@ -1074,7 +1557,7 @@ fi
 ############################################################################
 ###############Rosetta score for individual residues #######################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
  
 cat<<EOF > rosetta_resi.sh
 
@@ -1090,14 +1573,30 @@ per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_u
 sort -k21 -n -r default.out > lf_rsr_perRes.sc
 rm default.out
 
+per_residue_energies.mpi.linuxgccrelease -in:file:s lf_rsr_rnd2.pdb -ignore_unrecognized_res > lf_rsr_rnd2_perRes.log 
+sort -k21 -n -r default.out > lf_rsr_rnd2_perRes.sc
+rm default.out
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s lf_rsr_rnd3.pdb -ignore_unrecognized_res > lf_rsr_rnd3_perRes.log 
+sort -k21 -n -r default.out > lf_rsr_rnd3_perRes.sc
+rm default.out
+
+
 EOF
 
 per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out -ignore_unrecognized_res > ${PDB}_perRes.log & PID[23]=$!
 
 per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rnd2.pdb -out:file:silent lf_rnd2.out -ignore_unrecognized_res > lf_rnd2_perRes.log & PID[47]=$!
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rnd3.pdb -out:file:silent lf_rnd3.out -ignore_unrecognized_res > lf_rnd3_perRes.log & PID[48]=$!
+
 per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out -ignore_unrecognized_res > lf_rsr_perRes.log & PID[25]=$! 
 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -out:file:silent lfr_rnd2.out -ignore_unrecognized_res > lf_rsr_rnd2_perRes.log  & PID[35]=$!
+
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -out:file:silent lfr_rnd3.out -ignore_unrecognized_res > lf_rsr_rnd3_perRes.log  & PID[36]=$! 
 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
@@ -1137,6 +1636,31 @@ for PIDS in ${PID[*]};do
      done
 done
 
+
+############################################################################
+##################Creating a VMD visualizing .tcl scrip#####################
+############################################################################
+cat <<EOF > visualize_trj.tcl
+
+color Display Background white
+mol new $MAP.$MAPEXT
+mol modcolor 0 top colorID 2
+mol modstyle 0 top Isosurface 0.103826 0 0 1 1 1
+mol new data_files/${PDB}_autopsf.psf
+mol addfile data_files/simulation-step1.dcd
+mol addfile data_files/last_frame_rsr_autopsf.psf
+mol addfile data_files/simulation_rnd2-step1.dcd
+mol addfile data_files/last_frame_rsr_rnd2_autopsf.psf
+mol addfile data_files/simulation_rnd3-step1.dcd
+mol modstyle 0 top NewCartoon
+mol modcolor 0 top colorID 0
+animate forward
+animate style loop
+menu graphics on
+menu tkcon on
+EOF
+
+
 ############################################################################
 #############Creating plots of CCC and Clash from all frames################
 ############################################################################
@@ -1166,7 +1690,7 @@ cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
 ###################### extracting Rosetta Scores ###########################
 ############################################################################
 
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 cat<<EOF > sort_perResi_Score.sh
 
@@ -1176,6 +1700,14 @@ sort -k21 -n -r lf.out > lf_perRes.sc
 rm lf.out
 sort -k21 -n -r lfr.out > lf_rsr_perRes.sc
 rm lfr.out
+sort -k21 -n -r lf_rnd2.out > lf_rnd2_perRes.sc
+rm lf_rnd2.out
+sort -k21 -n -r lfr_rnd2.out > lf_rnd3_perRes.sc
+rm lf_rnd3.out
+sort -k21 -n -r lfr_rnd2.out > lf_rsr_rnd2_perRes.sc
+rm lfr_rnd2.out
+sort -k21 -n -r lfr_rnd3.out > lf_rsr_rnd3_perRes.sc
+rm lfr_rnd3.out
 
 EOF
 
@@ -1183,7 +1715,11 @@ sh sort_perResi_Score.sh
 
 awk 'NR<=10' ${PDB}_perRes.sc | awk '{print $3, $21}' > pr.sc
 awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
+awk 'NR<=10' lf_rnd2_perRes.sc | awk '{print $3, $21}' > pr6.sc
+awk 'NR<=10' lf_rnd3_perRes.sc | awk '{print $3, $21}' > pr7.sc
 awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
+awk 'NR<=10' lf_rsr_rnd2_perRes.sc | awk '{print $3, $21}' > pr4.sc
+awk 'NR<=10' lf_rsr_rnd3_perRes.sc | awk '{print $3, $21}' > pr5.sc
 
 
 else
@@ -1209,50 +1745,90 @@ fi
 ############################################################################
 ###############Displaying all the validation metrics #######################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+if [ "$MULTI" = "1" ]; then
 
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
 CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC4=$(awk '{print $2}' ccc_lastframe_rsr_rnd2.txt)
+CCC5=$(awk '{print $2}' ccc_lastframe_rsr_rnd3.txt)
+CCC6=$(awk '{print $2}' ccc_lastframe_rnd2.txt)
+CCC7=$(awk '{print $2}' ccc_lastframe_rnd3.txt)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
 claLFR=$(awk 'END {print $NF}' clash_last_frame_rsr.log)
+claLFR2=$(awk 'END {print $NF}' clash_lf_rsr_rnd2.log)
+claLFR3=$(awk 'END {print $NF}' clash_lf_rsr_rnd3.log)
+claLF2=$(awk 'END {print $NF}' clash_last_frame_rnd2.log)
+claLF3=$(awk 'END {print $NF}' clash_last_frame_rnd3.log)
 
 FAVINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $2}' | head -n1)
 FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
 FAVLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $2}' | head -n1)
+FAVLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $2}' | head -n1)
+FAVLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $2}' | head -n1)
+FAVLF2=$(grep SUMMARY rama_last_frame_rnd2.log | awk '{print $2}' | head -n1)
+FAVLF3=$(grep SUMMARY rama_last_frame_rnd3.log | awk '{print $2}' | head -n1)
 
 ALWINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $4}' | head -n1)
 ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
 ALWLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $4}' | head -n1)
+ALWLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $4}' | head -n1)
+ALWLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $4}' | head -n1)
+ALWLF2=$(grep SUMMARY rama_last_frame_rnd2.log | awk '{print $4}' | head -n1)
+ALWLF3=$(grep SUMMARY rama_last_frame_rnd3.log | awk '{print $4}' | head -n1)
 
 OUTINP=$(grep SUMMARY rama_"$PDB".log | awk '{print $6}' | head -n1)
 OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
 OUTLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $6}' | head -n1)
+OUTLFR2=$(grep SUMMARY rama_lf_rsr_rnd2.log | awk '{print $6}' | head -n1)
+OUTLFR3=$(grep SUMMARY rama_lf_rsr_rnd3.log | awk '{print $6}' | head -n1)
+OUTLF2=$(grep SUMMARY rama_last_frame_rnd2.log | awk '{print $6}' | head -n1)
+OUTLF3=$(grep SUMMARY rama_last_frame_rnd3.log | awk '{print $6}' | head -n1)
 
 CBEINP=$(grep "SUMMARY" cbeta_"$PDB".log | awk '{print $2}')
 CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
 CBELFR=$(grep "SUMMARY" cbeta_last_frame_rsr.log | awk '{print $2}')
+CBELFR2=$(grep "SUMMARY" cbeta_lf_rsr_rnd2.log | awk '{print $2}')
+CBELFR3=$(grep "SUMMARY" cbeta_lf_rsr_rnd3.log | awk '{print $2}')
+CBELF2=$(grep "SUMMARY" cbeta_last_frame_rnd2.log | awk '{print $2}')
+CBELF3=$(grep "SUMMARY" cbeta_last_frame_rnd3.log | awk '{print $2}')
 
 ROTINP=$(grep "SUMMARY" rota_"$PDB".log | awk '{print $2}')
 ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
 ROTLFR=$(grep "SUMMARY" rota_last_frame_rsr.log | awk '{print $2}')
+ROTLFR2=$(grep "SUMMARY" rota_lf_rsr_rnd2.log | awk '{print $2}')
+ROTLFR3=$(grep "SUMMARY" rota_lf_rsr_rnd3.log | awk '{print $2}')
+ROTLF2=$(grep "SUMMARY" rota_last_frame_rnd2.log | awk '{print $2}')
+ROTLF3=$(grep "SUMMARY" rota_last_frame_rnd3.log | awk '{print $2}')
 
 CISINP=$(awk '{print $1}' ${PDB}_cis.log)
 CISLF=$(awk '{print $1}' last_frame_cis.log)
 CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
+CISLFR2=$(awk '{print $1}' lf_rsr_rnd2_cis.log)
+CISLFR3=$(awk '{print $1}' lf_rsr_rnd3_cis.log)
+CISLF2=$(awk '{print $1}' last_frame_rnd2_cis.log)
+CISLF3=$(awk '{print $1}' last_frame_rnd3_cis.log)
 
 
 ROSINP=$(awk 'NR==3' ${PDB}.sc | awk '{print $2}')
 ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
 ROSLFR=$(awk 'NR==3' lf_rsr.sc | awk '{print $2}')
+ROSLFR2=$(awk 'NR==3' lf_rsr_rnd2.sc | awk '{print $2}')
+ROSLFR3=$(awk 'NR==3' lf_rsr_rnd3.sc | awk '{print $2}')
+ROSLF2=$(awk 'NR==3' lf_rnd2.sc | awk '{print $2}')
+ROSLF3=$(awk 'NR==3' lf_rnd3.sc | awk '{print $2}')
 
 
 INP=INP
 LF=LF
 LFR=LFR
+LF2=LF2
+LFR2=LFR2
+LF3=LF3
+LFR3=LFR3
 
  else
 
@@ -1288,7 +1864,7 @@ LF=LF
 LFR=LFR
 
 
-fi
+     fi
 
 
 echo -n '
@@ -1301,36 +1877,42 @@ Legend to the below table:
 INP = "$PDBIN" > This is the input PDB file.
 LF = last_frame.pdb    > This is the output PDB file from the MD simulation (last frame of the trajectory).
 LFR = last_frame_rsr.pdb  > Output PDB file from the Phenix real space refinement run on last_frame.pdb.
+LF2 = last_frame_rnd2.pdb    > This is the output PDB file from the 2nd MDFF simulation (last frame of the trajectory).
+LFR2 = last_frame_rsr_rnd2.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr.pdb.
+LF3 = last_frame_rnd3.pdb    > This is the output PDB file from the 3th MDFF simulation (last frame of the trajectory).
+LFR3 = last_frame_rsr_rnd3.pdb  > Output PDB file from the Phenix real space refinement run on last_frame_rsr_rnd2.pdb.
 CCC = Cross correlation coefficient between "$MAP"."$MAPEXT" and either of the above PDB files.
 "
 
 echo ""
-printf "+---------------------------------------------------------+\n"
-printf "|                  | %10s | %10s | %10s |          \n" $INP $LF $LFR
-printf "+---------------------------------------------------------+\n"
-printf "|  Clashscore:     | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR
-printf "|  Favored:        | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR
-printf "|  Allowed :       | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR
-printf "|  Outliers:       | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR
-printf "|  C-beta dev:     | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR
-printf "|  Rota-outliers:  | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR
-printf "|  CCC:            | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7}
-printf "|  Cis-Peptides:   | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR
-printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7}
-printf "+---------------------------------------------------------+\n"
+printf "+-------------------------------------------------------------------------------------------------------------+\n"
+printf "|                  | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $INP $LF $LFR $LF2 $LFR2 $LF3 $LFR3 
+printf "+-------------------------------------------------------------------------------------------------------------+\n"
+printf "|  Clashscore:     | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $claINP $claLF $claLFR $claLF2 $claLFR2 $claLF3 $claLFR3 
+printf "|  Favored:        | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $FAVINP $FAVLF $FAVLFR $FAVLF2 $FAVLFR2 $FAVLF3 $FAVLFR3 
+printf "|  Allowed :       | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $ALWLFR $ALWLF2 $ALWLFR2 $ALWLF3 $ALWLFR3 
+printf "|  Outliers:       | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR $OUTLF2 $OUTLFR2 $OUTLF3 $OUTLFR3 
+printf "|  C-beta dev:     | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR $CBELF2 $CBELFR2 $CBELF3 $CBELFR3 
+printf "|  Rota-outliers:  | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR $ROTLF2 $ROTLFR2 $ROTLF3 $ROTLFR3 
+printf "|  CCC:            | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7} ${CCC6:0:7} ${CCC4:0:7} ${CCC7:0:7} ${CCC5:0:7}
+printf "|  Cis-Peptides:   | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR $CISLF2 $CISLFR2 $CISLF3 $CISLFR3
+printf "|  Rosetta score:  | %10s | %10s | %10s | %10s | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7} ${ROSLF2:0:7} ${ROSLFR2:0:7} ${ROSLF3:0:7} ${ROSLFR3:0:7}
+printf "+-------------------------------------------------------------------------------------------------------------+\n"
 echo ""
 
 
-if [ "$PHENIXRS" = "1" ]; then
-    
-    pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
+if [ "$MULTI" = "1" ]; then
 
-    sed -i '1s/^/ Resid_Inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+    pr -mts pr.sc pr2.sc pr3.sc pr6.sc pr4.sc pr7.sc pr5.sc > perRes_scores_all.sc
+
+    sed -i '1s/^/ Resid_inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR Resid_LF2 Score_LF2 Resid_LFR2 Score_LFR2 Resid_LF3 Score_LF3 Resid_LFR3 Score_LFR3\n/' perRes_scores_all.sc
 
 else
+
     pr -mts pr.sc pr2.sc > perRes_scores_all.sc
 
-    sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF\n/' perRes_scores_all.sc
+    sed -i '1s/^/ Resid_Inp Score_Inp Resid_LF Score_LF\n/' perRes_scores_all.sc
+
 fi
 
 echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
@@ -1349,21 +1931,21 @@ cat<<EOF > cleanup.sh
 mv *.pkl $DIREC2/ 2> /dev/null
 mv *.csv $DIREC2/ 2> /dev/null
 mv *_plots $DIREC2/ 2> /dev/null
-mv simulation-step* $DIREC1/ 2> /dev/null
+mv simulation* $DIREC1/ 2> /dev/null
 mv mdff_template.namd $DIREC1/ 2> /dev/null
-mv $PDB-extrabonds-cis.txt $DIREC1/ 2> /dev/null
-mv $PDB-extrabonds-chi.txt $DIREC1/ 2> /dev/null
-mv $PDB-extrabonds.txt $DIREC1/ 2> /dev/null
+mv *-extrabonds-cis.txt $DIREC1/ 2> /dev/null
+mv *-extrabonds-chi.txt $DIREC1/ 2> /dev/null
+mv *-extrabonds.txt $DIREC1/ 2> /dev/null
 mv $PDB.pdb $DIREC1/ 2> /dev/null
-mv ${PDB}_autopsf*.* $DIREC1/ 2> /dev/null
-mv $PDB-grid.pdb $DIREC1/ 2> /dev/null
+mv *_autopsf*.* $DIREC1/ 2> /dev/null
+mv *-grid.pdb $DIREC1/ 2> /dev/null
 mv $MAP-grid.dx $DIREC1/ 2> /dev/null
 mv *.log $DIREC2/ 2> /dev/null
 mv *.tcl $DIREC3/ 2> /dev/null
 mv molpro.sh $DIREC3/ 2> /dev/null
-mv last_frame_his.pdb $DIREC1/ 2> /dev/null
-mv last_frame_bf.pdb $DIREC1/ 2> /dev/null
-mv last_frame_nohydro.pdb $DIREC1/ 2> /dev/null
+mv last_frame*_his.pdb $DIREC1/ 2> /dev/null
+mv last_frame*_bf.pdb $DIREC1/ 2> /dev/null
+mv last_frame*_nohydro.pdb $DIREC1/ 2> /dev/null
 mv frame*.pdb $DIREC1/ 2> /dev/null
 mv clash_allframes.sh $DIREC3/ 2> /dev/null
 mv cleanup.sh $DIREC3/ 2> /dev/null
@@ -1373,6 +1955,8 @@ mv ccc_*.txt $DIREC1/ 2> /dev/null
 mv all_frames_clash.txt $DIREC1/ 2> /dev/null
 mv gnuplot*.sh $DIREC3/ 2> /dev/null
 mv phenix_rs.sh $DIREC3/ 2> /dev/null
+mv phenix_rs_rnd2.sh $DIREC3/ 2> /dev/null
+mv phenix_rs_rnd3.sh $DIREC3/ 2> /dev/null
 mv rosetta.sh $DIREC3/ 2> /dev/null
 mv rosetta_resi.sh $DIREC3/ 2> /dev/null
 mv sort_perResi_Score.sh $DIREC3/ 2> /dev/null
@@ -1397,8 +1981,7 @@ sh cleanup.sh
 ############################################################################
 cat<<EOF > remove_all_generated_files.sh
 rm -r log_files/ scripts/ data_files/
-rm last_frame.pdb
-rm last_frame_rsr.pdb
+rm last_frame*.pdb
 rm remove_all_generated_files.sh
 EOF
 

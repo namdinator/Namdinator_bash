@@ -1534,15 +1534,15 @@ rm default.out
 
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID[23]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out -ignore_unrecognized_res > ${PDB}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID[24]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out > lf_rsr_perRes.log & PID[25]=$! 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out -ignore_unrecognized_res > lf_rsr_perRes.log & PID[25]=$! 
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -out:file:silent lfr_rnd2.out> lf_rsr_rnd2_perRes.log  & PID[35]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd2.pdb -out:file:silent lfr_rnd2.out -ignore_unrecognized_res > lf_rsr_rnd2_perRes.log  & PID[35]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -out:file:silent lfr_rnd3.out> lf_rsr_rnd3_perRes.log  & PID[36]=$! 
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr_rnd3.pdb -out:file:silent lfr_rnd3.out -ignore_unrecognized_res > lf_rsr_rnd3_perRes.log  & PID[36]=$! 
 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
@@ -1551,19 +1551,19 @@ Calculating Rosetta scores for individual residues in input and output PDB files
  else
 cat<<EOF > rosetta_resi.sh
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb > ${PDB}_perRes.log
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res > ${PDB}_perRes.log
 sort -k21 -n -r default.out > ${PDB}_perRes.sc
 rm default.out
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb > lf_perRes.log
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
 sort -k21 -n -r default.out > lf_perRes.sc
 rm default.out
 
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out > ${PDB}_perRes.log & PID[23]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out -ignore_unrecognized_res > ${PDB}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out > lf_perRes.log & PID[24]=$!
+per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
 
 
 echo -n "
