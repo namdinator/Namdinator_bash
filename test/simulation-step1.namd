@@ -1,0 +1,46 @@
+###  Docking -- Step 1
+ 
+set PSFFILE fit_nico_cryst_altered_autopsf.psf
+set PDBFILE fit_nico_cryst_altered_autopsf.pdb
+set GRIDPDB fit_nico_cryst_altered-grid.pdb
+set GBISON 0
+set DIEL 80
+set SCALING_1_4 1.0
+set ITEMP 300
+set FTEMP 300
+set GRIDFILE sharpened_map-grid.dx
+set GSCALE 0.3
+set EXTRAB {fit_nico_cryst_altered-extrabonds.txt fit_nico_cryst_altered-extrabonds-cis.txt fit_nico_cryst_altered-extrabonds-chi.txt}
+set CONSPDB 0
+set FIXPDB  0
+set GRIDON 1
+ 
+set OUTPUTNAME simulation-step1
+ 
+set TS 20000
+set MS 200
+ 
+set MARGIN 0
+ 
+####################################
+ 
+structure $PSFFILE
+coordinates $PDBFILE
+ 
+paraTypeCharmm on
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm
+parameters /opt/bioxray/programs/vmd-1.93/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm
+
+if {[info exists INPUTNAME]} {
+  BinVelocities $INPUTNAME.restart.vel
+  BinCoordinates $INPUTNAME.restart.coor
+} else {
+  temperature $ITEMP
+}
+ 
+ 
+source mdff_template.namd

@@ -1,0 +1,10 @@
+cat fit_nico.pdb | sed 's/./& /22' > PDB_alt.pdb
+
+cat PDB_alt.pdb |grep ATOM | awk '{print $3,$4,$5,$6}' | sort | uniq -c | sort -n > list.plt
+
+if [ "$(grep -c "      2" list.plt)" -ge 1; then
+    echo found
+else
+    exit
+
+fi
