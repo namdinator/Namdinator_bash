@@ -1487,3 +1487,4 @@ displaytime $ELAPSED_TIME
 ############################################################################
 
 sed -i $'s/[^H^H^H^H^H^H[:print:]\t]//g' namdinator_stdout.log 
+
