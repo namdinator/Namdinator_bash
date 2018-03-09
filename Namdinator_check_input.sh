@@ -393,7 +393,27 @@ fi
 ############################################################################
 ############# Testing input PDB file for duplicats #################
 ############################################################################
-     
+
+cat << EOF > duplicate.py
+
+import sys, os
+import iotbx.pdb
+
+def run(args):
+  pdb_inp = iotbx.pdb.input(file_name=args[0])
+  hierarchy = pdb_inp.construct_hierarchy()
+  counts = hierarchy.overall_counts()
+  counts.raise_residue_groups_with_multiple_resnames_using_same_altloc_if_necessary(max_show=9999)
+  counts.raise_improper_alt_conf_if_necessary()
+  counts.raise_chains_with_mix_of_proper_and_improper_alt_conf_if_necessary()
+  counts.raise_duplicate_atom_labels_if_necessary(max_show=9999)
+
+if __name__ == '__main__':
+  run(sys.argv[1:])
+EOF
+
+
+  
 cat $PDBIN | grep "^ATOM" | sed 's/./& /22' | sed 's/./& /62' > PDB_alt.pdb
 
 cat PDB_alt.pdb |grep "^ATOM" | awk '{print $3,$4,$5,$6}' | sort | uniq -dc | sort -n | uniq > duplicate_atoms.plt
@@ -406,9 +426,11 @@ The number in front of the atom labels, indicate how many times the specific ato
 "
 
     cat duplicate_atoms.plt
- 
+    rm -f PDB_alt.pdb
+
 else
-    rm -f duplicate_atoms.plt   
+    rm -f duplicate_atoms.plt
+        rm -f PDB_alt.pdb
 fi
 
 cat $PDBIN | grep "^ATOM" | sed 's/./& /22' | sed 's/./& /62' | awk '{print substr($0,13,17) substr($0,79,2)}' | sed -e 's/CG1/C  /g; s/CG2/C  /g; s/CD1/C  /g; s/CD2/C  /g; s/CE1/C  /g; s/CE2/C  /g; s/CE3/C  /g; s/CZ1/C  /g; s/CZ2/C  /g; s/CZ3/C  /g; s/CH2/C  /g; s/CA/C /g; s/CB/C /g; s/CD/C /g; s/CG/C /g; s/CE/C /g; s/CZ/C /g; s/OD1/O  /g; s/OD2/O  /g; s/OE1/O  /g; s/OE2/O  /g; s/OH/O /g; s/OG1/O  /g; s/OXT/O  /g; s/OG/O /g; s/NH1/N  /g; s/NH2/N  /g; s/ND1/N  /g; s/ND2/N  /g; s/NE1/N  /g; s/NE2/N  /g; s/NE/N /g; s/NZ/N /g; s/SD/S /g; s/SG/ S/g; s/SG/S /g' | awk -F " " '{ if ($1 != $5) print $1,$2,$3,$4,$5}' > mislabeled_atoms.plt
@@ -419,6 +441,7 @@ if [ -s mislabeled_atoms.plt ]; then
 
     cat mislabeled_atoms.plt
 
+    rm -f PDB
 else
     rm -f mislabeled_atoms.plt
 

@@ -561,16 +561,10 @@ fi
 ####################Remove hydrogens from last frame PDB####################
 ############################################################################
 echo -n '
-Renaming all HSD/HSE/HSP residues in last_frame.pdb, back to HIS and all CD ILE back to CD1 ILE
+Renaming all HSD/HSE/HSP residues in last_frame.pdb, back to HIS
 '
-sed -e 's/CD  ILE/CD1 ILE/g' last_frame.pdb > last_frame_ILE.pdb
 
-while [ ! -f last_frame_ILE.pdb ] ; do
-
-     sleep 1
-done
-
-sed -e 's/HSD/HIS/g; s/HSE/HIS/g; s/HSP/HIS/g' last_frame_ILE.pdb > last_frame_his.pdb
+sed -e 's/HSD/HIS/g; s/HSE/HIS/g; s/HSP/HIS/g' last_frame.pdb > last_frame_his.pdb
 
 
 while [ ! -f last_frame_his.pdb ] ; do
@@ -640,7 +634,7 @@ mol addfile simulation-step1.dcd waitfor all
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
 
-mol new ${PDB}_autopsf.pdb
+mol new ${PDB}.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
 
@@ -1367,7 +1361,6 @@ mv $MAP-grid.dx $DIREC1/ 2> /dev/null
 mv *.log $DIREC2/ 2> /dev/null
 mv *.tcl $DIREC3/ 2> /dev/null
 mv molpro.sh $DIREC3/ 2> /dev/null
-mv last_frame_ILE.pdb $DIREC1/ 2> /dev/null
 mv last_frame_his.pdb $DIREC1/ 2> /dev/null
 mv last_frame_bf.pdb $DIREC1/ 2> /dev/null
 mv last_frame_nohydro.pdb $DIREC1/ 2> /dev/null
