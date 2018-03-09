@@ -640,7 +640,7 @@ mol addfile simulation-step1.dcd waitfor all
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
 
-mol new ${PDB}_autopsf.pdb
+mol new ${PDB}.pdb
 mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
 
