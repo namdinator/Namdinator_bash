@@ -558,7 +558,7 @@ if grep -F 'End of program' NAMD2_step1.log >/dev/null 2>&1 ; then
 fi
 
 ############################################################################
-####################Remove hydrogens from last frame PDB####################
+#######################Cleaning up last frame PDB###########################
 ############################################################################
 echo -n '
 Renaming all HSD/HSE/HSP residues in last_frame.pdb back to HIS, all CD ILE back to CD1 ILE and OT1/OT2 to O and OXT for terminal residues
@@ -638,63 +638,75 @@ fi
 
 if [ "$PHENIXRS" = "1" ]; then
 
-cat<<EOF > CCC_check.tcl
+cat<<EOF > CC_map_files.sh
 
-package require mdff
-package require multiplot
+phenix.map_model_cc ${PDB}.pdb $MAP.$MAPEXT resolution=$RES > CC_input.log
+phenix.map_model_cc last_frame.pdb $MAP.$MAPEXT resolution=$RES > CC_lf.log
+phenix.map_model_cc last_frame_rsr.pdb $MAP.$MAPEXT resolution=$RES > CC_rsr.log
 
-mol new ${PDB}_autopsf.psf
-mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_frames.txt
-multiplot reset
+EOF
 
-mol new ${PDB}.pdb
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_input.txt
-multiplot reset
-
-mol new last_frame.pdb
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.txt
-
-mol new last_frame_rsr.pdb
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
+cat<<EOF > write_frames.tcl
 
 mol new ${PDB}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 
-set incre [ expr $NUMS/1000]
+set incre [ expr $NUMS/1000 ]
 for {set i 0} {\$i < \$incre} {incr i 1} { 
          [atomselect top all frame \$i] writepdb frame\$i.pdb 
  } 
 EOF
 
+cat<<EOF > CC_map_frames.sh
+
+for file in \$(ls -1tr frame*.pdb)
+do
+
+    name=\$(basename \${file} .pdb)
+    sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$file > \$file_bf.pdb
+    phenix.reduce -trim \$file_bf.pdb > \${name}_trim.pdb
+    phenix.pdbtools \${name}_trim.pdb file_name=\${name}_formatted.pdb
+    
+    while [ \$(pgrep -f map_model_cc.py | wc -l) -ge $PROCS ]; do
+    sleep 1
+done
+
+    phenix.map_model_cc \${name}_formatted.pdb ${MAP}.${MAPEXT} resolution=$RES > \${name}.log
+done
+
+grep "CC_volume" frame*.log | sed -e 's/.log:/.pdb/g' | awk '{print \$1, \$3}' > cc_frames.txt
+
+
+EOF
+
+
 echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAP"."$MAPEXT"
+Calculating the CC between each frame of the trajectory simulation-step1.dcd and "$MAP"."$MAPEXT"
 "
 
-vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
+vmd -dispdev text -eofexit <write_frames.tcl> write_frames.log &
+
+spinner $!
+
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+
+sh CC_map_frames.sh > cc_map_frames.log &
 
 spinner $!
 
 
 else
 
+cat<<EOF > CC_map_files.sh
 
-cat<<EOF > CCC_check.tcl
+phenix.map_model_cc ${PDB}.pdb $MAP.$MAPEXT resolution=$RES > CC_input.log
+phenix.map_model_cc last_frame.pdb $MAP.$MAPEXT resolution=$RES > CC_lf.log
 
-package require mdff
-package require multiplot
+EOF
 
-mol new ${PDB}_autopsf.psf
-mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_frames.txt
-multiplot reset
-
-mol new ${PDB}_autopsf.pdb
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_input.txt
-multiplot reset
-
-mol new last_frame.pdb
-mdff check -ccc -map $MAP.$MAPEXT -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+cat<<EOF > write_frames.tcl
 
 mol new ${PDB}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
@@ -705,11 +717,40 @@ for {set i 0} {\$i < \$incre} {incr i 1} {
  } 
 EOF
 
-echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAP"."$MAPEXT"
-"
+cat<<EOF > CC_map_frames.sh
 
-vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
+for file in \$(ls -1tr frame*.pdb)
+do
+
+    name=\$(basename \${file} .pdb)
+    sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$file > \$file_bf.pdb
+    phenix.reduce -trim \$file_bf.pdb > \${name}_trim.pdb
+    phenix.pdbtools \${name}_trim.pdb file_name=\${name}_formatted.pdb
+    
+    while [ \$(pgrep -f map_model_cc.py | wc -l) -ge $PROCS ]; do
+    sleep 1
+done
+
+    phenix.map_model_cc \${name}_formatted.pdb ${MAP}.${MAPEXT} resolution=$RES > \${name}.log
+done
+
+grep "CC_volume" frame*.log | sed -e 's/.log:/.pdb/g' | awk '{print \$1, \$3}' > cc_frames.txt
+
+
+EOF
+
+echo -n "
+Calculating the CC between each frame of the trajectory simulation-step1.dcd and "$MAP"."$MAPEXT"
+"
+vmd -dispdev text -eofexit <write_frames.tcl> write_frames.log &
+
+spinner $!
+
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+
+sh CC_map_frames.sh > cc_map_frames.log &
 
 spinner $!
      
@@ -720,20 +761,19 @@ fi
 ############################################################################
 
 
-cat<<EOF > gnuplot_dumb.sh
+cat<<EOF > gnuplot_cc_dumb.sh
 set terminal dumb 110 35
 unset xtics
-plot "ccc_frames.txt" using 1:2 w points pt "*" notitle
+plot "cc_frames.txt" using 2:xtic(1) w points pt "*" notitle
 EOF
 
 
-cat<<EOF > gnuplot_png.sh
+cat<<EOF > gnuplot_cc_png.sh
 set term png size 1400,800
-set output "CCC_all_frames.png"
-plot "ccc_frames.txt" using 1:2 with lines notitle
+set output "CC_all_frames.png"
+plot "cc_frames.txt" using 2:xtic(1) with lines notitle
 replot
 EOF
-
 
 
 ############################################################################
@@ -742,36 +782,20 @@ EOF
 cat<<EOF > clash_allframes.sh
 #!/bin/bash
 
-for i in \$(ls -1v frame*.pdb); do
-
-    f=\$(echo \$i| cut -d\. -f1)
-    
-    sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$i > \$f-bf.pdb
-done
-
 NUM=0
-for i in \$(ls -1v frame*-bf.pdb); do
+for i in \$(ls -1v frame*_formatted.pdb); do
     NUM=\$(( \$NUM + 1 ))
     f=\$(echo \$i| cut -d\. -f1)
 
-    while [ \$(pgrep -f clashscore.py | wc -l) -ge $PROCS ]; do
-    sleep 1
-    done
-
-    phenix.clashscore \$i > \$f.log & pids[\${NUM}]=\$!
+    phenix.clashscore \$i > \${f}_clash.log 
 done
 
-for pid in \${pids[*]}; do
-    wait \$pid     
-done
-
-done
-ls -1v frame*-bf.log | xargs -d '\n' grep "clashscore" | sed -e "s/:clashscore =//g" | sed -e 's/-bf.log/.pdb/g' > all_frames_clash.txt
+ls -1v frame*_formatted_clash.log | xargs -d '\n' grep "clashscore" | sed -e "s/:clashscore =//g" | sed -e 's/_clash.log/.pdb/g' > all_frames_clash.txt
 
 EOF
 
-chmod +x clash_allframes.sh
-./clash_allframes.sh & PID[4]=$!
+
+sh clash_allframes.sh > loggy_deLoggy.log & PID[4]=$!
 
 echo -n "
 Calculating Clashscores for all individual frames from the trajectory
@@ -861,24 +885,6 @@ echo -n "Identifying Cispeptides in input PDB file and output PDB file
 ############################################################################
 if [ "$PHENIXRS" = "1" ]; then
 
-cat<<EOF > molpro.sh
-
-phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
-phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log
-phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log
-phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log
-
-phenix.ramalyze last_frame.pdb > rama_last_frame.log
-phenix.rotalyze last_frame.pdb > rota_last_frame.log
-phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
-phenix.clashscore last_frame.pdb > clash_last_frame.log
-
-phenix.ramalyze $PDB.pdb > rama_$PDB.log
-phenix.rotalyze $PDB.pdb > rota_$PDB.log
-phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
-phenix.clashscore $PDB.pdb > clash_$PDB.log
-EOF
-
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log & PID[8]=$!
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log & PID[9]=$!
 phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log & PID[10]=$!
@@ -899,18 +905,6 @@ Running Molprobity valdations tools on input and output PDB files
 "
 
  else
-
-     cat<<EOF > molpro.sh
-phenix.ramalyze last_frame.pdb > rama_last_frame.log
-phenix.rotalyze last_frame.pdb > rota_last_frame.log
-phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
-phenix.clashscore last_frame.pdb > clash_last_frame.log
-
-phenix.ramalyze $PDB.pdb > rama_$PDB.log
-phenix.rotalyze $PDB.pdb > rota_$PDB.log
-phenix.cbetadev $PDB.pdb > cbeta_$PDB.log
-phenix.clashscore $PDB.pdb > clash_$PDB.log
-EOF
 
 phenix.ramalyze last_frame.pdb > rama_last_frame.log & PID[12]=$!
 phenix.rotalyze last_frame.pdb > rota_last_frame.log & PID[13]=$!
@@ -1090,22 +1084,6 @@ fi
 ############################################################################
 if [ "$PHENIXRS" = "1" ]; then
  
-cat<<EOF > rosetta_resi.sh
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res > ${PDB}_perRes.log
-sort -k21 -n -r default.out > ${PDB}_perRes.sc
-rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
-sort -k21 -n -r default.out > lf_perRes.sc
-rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res > lf_rsr_perRes.log 
-sort -k21 -n -r default.out > lf_rsr_perRes.sc
-rm default.out
-
-EOF
-
 per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out -ignore_unrecognized_res > ${PDB}_perRes.log & PID[23]=$!
 
 per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
@@ -1118,17 +1096,6 @@ Calculating Rosetta scores for individual residues in input and output PDB files
 "
 
  else
-cat<<EOF > rosetta_resi.sh
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -ignore_unrecognized_res > ${PDB}_perRes.log
-sort -k21 -n -r default.out > ${PDB}_perRes.sc
-rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
-sort -k21 -n -r default.out > lf_perRes.sc
-rm default.out
-
-EOF
 
 per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB}.pdb -out:file:silent ${PDB}.out -ignore_unrecognized_res > ${PDB}_perRes.log & PID[23]=$!
 
@@ -1158,23 +1125,23 @@ done
 echo -n '
 Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
 
-cat ccc_frames.txt | gnuplot gnuplot_dumb.sh
+gnuplot gnuplot_cc_dumb.sh
 
 echo -n '
 Writing a prettified version of the above plot as a PNG (CCC_all_frames.png).
 '
-cat ccc_frames.txt | gnuplot gnuplot_png.sh
+gnuplot gnuplot_cc_png.sh
 
 
 echo -n '
 Plotting the Clashscores for every '$NUMS'/1000 frame of the trajectory simulation-step1.dcd'
-cat all_frames_clash.txt | gnuplot gnuplot_clash_dumb.sh
+gnuplot gnuplot_clash_dumb.sh
 
 
 echo -n '
 Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
 '
-cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
+gnuplot gnuplot_clash_png.sh
 
 ############################################################################
 ###################### extracting Rosetta Scores ###########################
@@ -1223,12 +1190,17 @@ fi
 ############################################################################
 ###############Displaying all the validation metrics #######################
 ############################################################################
+phenix.map_model_cc ${PDB}.pdb $MAP.$MAPEXT resolution=$RES > CC_input.log
+phenix.map_model_cc last_frame.pdb $MAP.$MAPEXT resolution=$RES > CC_lf.log
+phenix.map_model_cc last_frame_rsr.pdb $MAP.$MAPEXT resolution=$RES > CC_rsr.log
+
+
+
 if [ "$PHENIXRS" = "1" ]; then
 
-
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
+CCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
+CCC3=$(grep "CC_volume" CC_rsr.log | awk '{print $2}')
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1270,8 +1242,8 @@ LFR=LFR
 
  else
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
+CCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1376,8 +1348,8 @@ mv *.log $DIREC2/ 2> /dev/null
 mv *.tcl $DIREC3/ 2> /dev/null
 mv molpro.sh $DIREC3/ 2> /dev/null
 mv last_frame_ILE.pdb $DIREC1/ 2> /dev/null
-mv last_frame_his.pdb $DIREC1/ 2> /dev/null
 mv last_frame_OXT.pdb $DIREC1/ 2> /dev/null
+mv last_frame_his.pdb $DIREC1/ 2> /dev/null
 mv last_frame_bf.pdb $DIREC1/ 2> /dev/null
 mv last_frame_nohydro.pdb $DIREC1/ 2> /dev/null
 mv frame*.pdb $DIREC1/ 2> /dev/null
@@ -1385,7 +1357,7 @@ mv clash_allframes.sh $DIREC3/ 2> /dev/null
 mv cleanup.sh $DIREC3/ 2> /dev/null
 mv *.png $DIREC2/ 2> /dev/null
 mv last_frame_real_space_refined_all_states.pdb $DIREC1/ 2> /dev/null
-mv ccc_*.txt $DIREC1/ 2> /dev/null
+mv cc_*.txt $DIREC1/ 2> /dev/null
 mv all_frames_clash.txt $DIREC1/ 2> /dev/null
 mv gnuplot*.sh $DIREC3/ 2> /dev/null
 mv phenix_rs.sh $DIREC3/ 2> /dev/null
@@ -1395,6 +1367,7 @@ mv sort_perResi_Score.sh $DIREC3/ 2> /dev/null
 mv *.sc $DIREC2/ 2> /dev/null
 mv *.geo $DIREC2/ 2> /dev/null
 mv $DIREC2/namdinator_stdout.log . 2> /dev/null
+mv CC_map_f*.sh $DIREC3/ 2> /dev/null
 EOF
 
 
