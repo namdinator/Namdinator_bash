@@ -21,6 +21,8 @@ Example on how to run Namdinator with default settings plus including a phenix.r
 -p is the input PDB file (mandatory), -m is the input density in .mrc format (mandatory), -r is the resolution of the input density (mandatory) and -x is to turn on phenix.real.space refinement (Optional, but recommended).
 
 
+I have included a test set consisting of a PDB file (3JD8.pdb) and the corresponding EM map (emd_6644.mrc), to easily test if Namdinator is working etc. 
+
 ----------------------------------
 All the untested/work in progress versions are placed in their own folder, please dont use any of these as they have not been tested. Only use the version that is placed in the main folder.
 
