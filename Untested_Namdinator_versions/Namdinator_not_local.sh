@@ -233,12 +233,12 @@ spinner()
 
 PDBPATH=$(echo "$PDBIN" | rev | cut -d\/ -f2- | rev | xargs -I "%" echo "%/")
 PDBFILE=$(echo "$PDBIN" | rev | cut -d\/ -f1 | rev )
-PDBNAME=$(echo "$PDBFILE"| cut -d\. -f1)
+PDBNAME=$(echo "$PDBFILE"| rev | cut -d\. -f2- |rev )
 PDBEXT=$(echo "$PDBFILE"| rev| cut -d\. -f1|rev )
 
 MAPPATH=$(echo "$MAPIN" | rev | cut -d\/ -f2- | rev | xargs -I "%" echo "%/")
 MAPFILE=$(echo "$MAPIN" | rev | cut -d\/ -f1 | rev )
-MAPNAME=$(echo "$MAPFILE"| cut -d\. -f1)
+MAPNAME=$(echo "$MAPFILE"| rev | cut -d\. -f2- |rev )
 MAPEXT=$(echo "$MAPFILE"| rev| cut -d\. -f1|rev )
 
 
