@@ -12,8 +12,6 @@ Phenix software package version 1.13rc1 (2954): https://www.phenix-online.org/do
 
 Rosetta modelleing software package (ver. 2016.32.58837): https://www.rosettacommons.org/software/license-and-download
 
-NB. Namdinator needs all the input files to be in the same directory as the script is executede from.
-
 Example on how to run Namdinator with default settings plus including a phenix.real_space_refine run:
 
 ./Namdinator_local.sh -p input.pdb -m map.mrc -r 3.5 -x
