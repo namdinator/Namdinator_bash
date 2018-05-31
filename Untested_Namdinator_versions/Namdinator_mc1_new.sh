@@ -111,8 +111,6 @@ All of Namdinator's flags are listed below:
 
       -n Number or processors used (default: number of processors divided by number of threads)
 
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
-
 **************************************************************
 All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt if relevant), are stored in the folder "data_files" whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
 
@@ -313,8 +311,6 @@ All of Namdinator's flags are listed below:
       -l If this flag is set, all present HETATM will be allowed to stay in the input PDB file and used throughout the simulation. Does not work well with the -x flag.
 
       -n Number or processors used (default: number of processors divided by number of threads)
-
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
 "
     exit 1
 
