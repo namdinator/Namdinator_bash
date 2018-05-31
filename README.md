@@ -22,12 +22,12 @@ Example on how to run Namdinator with default settings plus including a phenix.r
 I have included a test set consisting of a PDB file (3JD8.pdb) and the corresponding EM map (emd_6644.mrc), to easily test if Namdinator is working etc. 
 
 ----------------------------------
-All the untested/work in progress versions are placed in their own folder, please dont use any of these as they have not been tested. Only use the version that is placed in the main folder.
+All the untested/work in progress versions are placed in their own folder, please dont use any of these as they have not been tested thoroughly. Only use the version that is placed in the main folder called Namdinator_current.sh.
 
 
 Notes on some the untested versions can be found below, but it is not updated often:
 Namdinator_paral.sh: A parallelized version of Namdinator_local.sh, which is much faster during the validation steps. This is basically a poor mans version of parallelization, as each step is just split into as many jobs as possible and then executed more less on the same time. But it works!
 
-Namdinator_multiRun.sh: A modified version of the parallelized version, where two more rounds of NAMD and RSR is added, so the output files from the previous runs are run through NAMD+RSR and then repeated once more.  At the end all the output files are validated and compared to each other. This version could be very good for Namdiantor runs where an actual fitting is taking place.
+Namdinator_multiRun.sh: A modified version of the parallelized version, where two additonal rounds of NAMD and RSR is added, so the output files from the previous runs are run through NAMD+RSR and then repeated once more.  At the end all the output files are validated and compared to each other. This version could be very good for Namdiantor runs where an actual fitting is taking place.
 
-Namdinator_multiRun_mc1.sh: same as the other verion except it only does 1 macro cycle during each RSR run. Still testing this, but it seems to outperform the other version on speed and results.
+Namdinator_multiRun_mc1.sh: same as the other version except it only does 1 macro cycle during each RSR run. Still testing this, but it seems to outperform the other version on speed and results.
