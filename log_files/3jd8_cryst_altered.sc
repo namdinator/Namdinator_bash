@@ -1,3 +1,0 @@
-SEQUENCE: 
-SCORE: total_score       score dslf_fa13 elec_dens_fast         fa_atr         fa_dun        fa_elec fa_intra_rep       fa_rep       fa_sol hbond_bb_sc hbond_lr_bb    hbond_sc hbond_sr_bb linear_chainbreak             omega overlap_chainbreak            p_aa_pp pro_close      rama       ref      time yhh_planarity description 
-SCORE:   46618.714   46618.715    30.402     -10678.557      -5412.079       3217.651       -237.111       19.158    55383.674     3001.276     -42.623     -60.148     -15.072    -331.962             0.000           142.925              0.000            120.502  1120.140   255.772   104.767     3.000         0.000 3jd8_cryst_altered_0001
