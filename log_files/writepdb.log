@@ -1,0 +1,51 @@
+Info) VMD for LINUXAMD64, version 1.9.3 (November 30, 2016)
+Info) http://www.ks.uiuc.edu/Research/vmd/                         
+Info) Email questions and bug reports to vmd@ks.uiuc.edu           
+Info) Please include this reference in published work using VMD:   
+Info)    Humphrey, W., Dalke, A. and Schulten, K., `VMD - Visual   
+Info)    Molecular Dynamics', J. Molec. Graphics 1996, 14.1, 33-38.
+Info) -------------------------------------------------------------
+Info) Multithreading available, 20 CPUs detected.
+Info)   CPU features: SSE2 AVX AVX2 FMA 
+Info) Free system memory: 10GB (32%)
+Info) Creating CUDA device pool and initializing hardware...
+Info) Detected 1 available CUDA accelerator:
+Info) [0] GeForce GTX 1080   20 SM_6.1 @ 1.73 GHz, 7.9GB RAM, KTO, AE2, ZCP
+Info) Detected 1 available TachyonL/OptiX ray tracing accelerator
+Info)   Compiling 1 OptiX shaders on 1 target GPU...
+Info) Dynamically loaded 2 plugins in directory:
+Info) /opt/bioxray/programs/vmd-1.93/lib/plugins/LINUXAMD64/molfile
+after#0
+Info) Using plugin pdb for structure file 3jd8_cryst_altered_autopsf.pdb
+Info) Using plugin pdb for coordinates from file 3jd8_cryst_altered_autopsf.pdb
+Info) Determining bond structure from distance search ...
+Info) Analyzing structure ...
+Info)    Atoms: 17558
+Info)    Bonds: 18601
+Info)    Angles: 0  Dihedrals: 0  Impropers: 0  Cross-terms: 0
+Info)    Bondtypes: 0  Angletypes: 0  Dihedraltypes: 0  Impropertypes: 0
+Info)    Residues: 1133
+Info)    Waters: 0
+Info)    Segments: 4
+Info)    Fragments: 4   Protein: 3   Nucleic: 0
+0
+Info) Finished with coordinate file 3jd8_cryst_altered_autopsf.pdb.
+psfplugin) Detected a Charmm PSF file
+Info) Analyzing structure ...
+Info)    Atoms: 17558
+Info)    Bonds: 17803
+Info)    Angles: 32118  Dihedrals: 47194  Impropers: 2979  Cross-terms: 1125
+Info)    Bondtypes: 0  Angletypes: 0  Dihedraltypes: 0  Impropertypes: 0
+Info)    Residues: 1133
+Info)    Waters: 0
+Info)    Segments: 4
+Info)    Fragments: 4   Protein: 4   Nucleic: 0
+0
+Info) Using plugin namdbin for coordinates from file simulation-step1.coor
+0
+Info) Finished with coordinate file simulation-step1.coor.
+Info) Opened coordinate file last_frame.pdb for writing.
+Info) Finished with coordinate file last_frame.pdb.
+1
+Info) VMD for LINUXAMD64, version 1.9.3 (November 30, 2016)
+Info) Exiting normally.

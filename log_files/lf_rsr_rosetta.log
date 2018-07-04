@@ -1,0 +1,113 @@
+core.init: (0) Rosetta version unknown:exported  from http://www.rosettacommons.org
+core.init: (0) command: score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile emd_6640.mrc -edensity::mapreso 4.4 -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc
+core.init: (0) 'RNG device' seed mode, using '/dev/urandom', seed=-1155224783 seed_offset=0 real_seed=-1155224783
+core.init.random: (0) RandomGenerator:init: Normal mode, seed=-1155224783 RG_type=mt19937
+core.init: (0) found database environment variable ROSETTA3_DB: /opt/bioxray/programs/rosetta_bin_linux_2017.08.59291_bundle/main/database
+core.scoring.ScoreFunctionFactory: (0) SCOREFUNCTION: talaris2014
+core.scoring.etable: (0) Starting energy table calculation
+core.scoring.etable: (0) smooth_etable: changing atr/rep split to bottom of energy well
+core.scoring.etable: (0) smooth_etable: spline smoothing lj etables (maxdis = 6)
+core.scoring.etable: (0) smooth_etable: spline smoothing solvation etables (max_dis = 6)
+core.scoring.etable: (0) Finished calculating energy tables.
+basic.io.database: (0) Database file opened: scoring/score_functions/hbonds/sp2_elec_params/HBPoly1D.csv
+basic.io.database: (0) Database file opened: scoring/score_functions/hbonds/sp2_elec_params/HBFadeIntervals.csv
+basic.io.database: (0) Database file opened: scoring/score_functions/hbonds/sp2_elec_params/HBEval.csv
+basic.io.database: (0) Database file opened: scoring/score_functions/rama/Rama09_noEH_kernel25_it08.dat
+basic.io.database: (0) Database file opened: scoring/score_functions/P_AA_pp/P_AA
+basic.io.database: (0) Database file opened: scoring/score_functions/P_AA_pp/P_AA_n
+basic.io.database: (0) Database file opened: scoring/score_functions/P_AA_pp/P_AA_pp
+protocols.evaluation.ChiWellRmsdEvaluatorCreator: (0) Evaluation Creator active ... 
+protocols.jd2.PDBJobInputter: (0) Instantiate PDBJobInputter
+protocols.jd2.PDBJobInputter: (0) PDBJobInputter::fill_jobs
+protocols.jd2.PDBJobInputter: (0) pushed last_frame_rsr.pdb nstruct index 1
+protocols.evaluation.ChiWellRmsdEvaluatorCreator: (0) Evaluation Creator active ... 
+protocols.jd2.PDBJobInputter: (0) PDBJobInputter::pose_from_job
+protocols.jd2.PDBJobInputter: (0) filling pose from PDB last_frame_rsr.pdb
+core.chemical.GlobalResidueTypeSet: (0) Finished initializing fa_standard residue type set.  Created 544 residue types
+core.chemical.GlobalResidueTypeSet: (0) Total time to initialize 0.513831 seconds.
+core.import_pose.import_pose: (0) File 'last_frame_rsr.pdb' automatically determined to be of type PDB
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] discarding 1 atoms at position 266 in file last_frame_rsr.pdb. Best match rsd_type:  PHE
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] discarding 1 atoms at position 709 in file last_frame_rsr.pdb. Best match rsd_type:  PHE
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] discarding 1 atoms at position 865 in file last_frame_rsr.pdb. Best match rsd_type:  VAL
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] missing density found at residue (rosetta number) 266
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] missing density found at residue (rosetta number) 709
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] missing density found at residue (rosetta number) 865
+core.conformation.Conformation: (0) Found disulfide between residues 3 52
+core.conformation.Conformation: (0) current variant for 3 CYS
+core.conformation.Conformation: (0) current variant for 52 CYS
+core.conformation.Conformation: (0) current variant for 3 CYD
+core.conformation.Conformation: (0) current variant for 52 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 9 20
+core.conformation.Conformation: (0) current variant for 9 CYS
+core.conformation.Conformation: (0) current variant for 20 CYS
+core.conformation.Conformation: (0) current variant for 9 CYD
+core.conformation.Conformation: (0) current variant for 20 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 41 87
+core.conformation.Conformation: (0) current variant for 41 CYS
+core.conformation.Conformation: (0) current variant for 87 CYS
+core.conformation.Conformation: (0) current variant for 41 CYD
+core.conformation.Conformation: (0) current variant for 87 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 53 91
+core.conformation.Conformation: (0) current variant for 53 CYS
+core.conformation.Conformation: (0) current variant for 91 CYS
+core.conformation.Conformation: (0) current variant for 53 CYD
+core.conformation.Conformation: (0) current variant for 91 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 75 216
+core.conformation.Conformation: (0) current variant for 75 CYS
+core.conformation.Conformation: (0) current variant for 216 CYS
+core.conformation.Conformation: (0) current variant for 75 CYD
+core.conformation.Conformation: (0) current variant for 216 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 78 138
+core.conformation.Conformation: (0) current variant for 78 CYS
+core.conformation.Conformation: (0) current variant for 138 CYS
+core.conformation.Conformation: (0) current variant for 78 CYD
+core.conformation.Conformation: (0) current variant for 138 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 155 162
+core.conformation.Conformation: (0) current variant for 155 CYS
+core.conformation.Conformation: (0) current variant for 162 CYS
+core.conformation.Conformation: (0) current variant for 155 CYD
+core.conformation.Conformation: (0) current variant for 162 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 205 221
+core.conformation.Conformation: (0) current variant for 205 CYS
+core.conformation.Conformation: (0) current variant for 221 CYS
+core.conformation.Conformation: (0) current variant for 205 CYD
+core.conformation.Conformation: (0) current variant for 221 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 218 225
+core.conformation.Conformation: (0) current variant for 218 CYS
+core.conformation.Conformation: (0) current variant for 225 CYS
+core.conformation.Conformation: (0) current variant for 218 CYD
+core.conformation.Conformation: (0) current variant for 225 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 405 416
+core.conformation.Conformation: (0) current variant for 405 CYS
+core.conformation.Conformation: (0) current variant for 416 CYS
+core.conformation.Conformation: (0) current variant for 405 CYD
+core.conformation.Conformation: (0) current variant for 416 CYD
+core.conformation.Conformation: (0) Found disulfide between residues 453 470
+core.conformation.Conformation: (0) current variant for 453 CYS
+core.conformation.Conformation: (0) current variant for 470 CYS
+core.conformation.Conformation: (0) current variant for 453 CYD
+core.conformation.Conformation: (0) current variant for 470 CYD
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] can't find pose atom for file-residue 266 atom  OXT (trying to store temperature in PDBInfo)
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] can't find pose atom for file-residue 709 atom  OXT (trying to store temperature in PDBInfo)
+core.io.pose_from_sfr.PoseFromSFRBuilder: (0) [ WARNING ] can't find pose atom for file-residue 865 atom  OXT (trying to store temperature in PDBInfo)
+core.scoring.electron_density.ElectronDensity: (0) Loading Density Map
+core.scoring.electron_density.ElectronDensity: (0) Loading density mapemd_6640.mrc
+core.scoring.electron_density.ElectronDensity: (0)  Setting resolution to 4.4A
+core.scoring.electron_density.ElectronDensity: (0)           atom mask to 3.2A
+core.scoring.electron_density.ElectronDensity: (0)             CA mask to 6A
+core.scoring.electron_density.ElectronDensity: (0)  Read density map'emd_6640.mrc'
+core.scoring.electron_density.ElectronDensity: (0)      extent: 200 x 200 x 200
+core.scoring.electron_density.ElectronDensity: (0)      origin: 0 x 0 x 0
+core.scoring.electron_density.ElectronDensity: (0)   altorigin: 0 x 0 x 0
+core.scoring.electron_density.ElectronDensity: (0)        grid: 200 x 200 x 200
+core.scoring.electron_density.ElectronDensity: (0)     celldim: 261.308 x 261.308 x 261.308
+core.scoring.electron_density.ElectronDensity: (0)  cellangles: 90 x 90 x 90
+core.scoring.electron_density.ElectronDensity: (0)  voxel vol.: 2.23033
+core.scoring.electron_density.ElectronDensity: (0) Effective resolution = 4.4
+core.scoring.electron_density.ElectronDensity: (0) Setting [kmin_,kmax_] to [0.062821,1.44542]
+core.scoring.electron_density.ElectronDensity: (0) Bin 1:  B(C/N/O/S)=49.0133 / 53.3021 / 56.7354 / 49.2254  sum=(0,0)
+core.pack.dunbrack.RotamerLibrary: (0) Using Dunbrack library binary file '/u/rtk/.rosetta/database/rotamer/ExtendedOpt1-5/Dunbrack10.lib.bin'.
+core.pack.dunbrack.RotamerLibrary: (0) Dunbrack 2010 library took 0.174617 seconds to load from binary
+protocols.jd2.JobDistributor: (0) last_frame_rsr_0001 reported success in 12 seconds
+protocols.jd2.JobDistributor: (0) no more batches to process... 
+protocols.jd2.JobDistributor: (0) 1 jobs considered, 1 jobs attempted in 12 seconds

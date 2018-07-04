@@ -341,21 +341,28 @@ if [ "$RES" = "" ]; then
 if [ "$PHENIXRS" = "1" ]; then
 
     if grep -q -E ^CRYST1 "$PDBIN"; then
-
+	
     echo -n "
 CRYST1 record identified in input PDB.
 "
-
+    PDB1="$PDBNAME"
+  
     else
+
     echo -n "
 NO CRYST1 record found in input PDB! Inserting default CRYST1 string to enable Phenix real space refine to run
 "
 
-sed '1s/^/CRYST1    1.000   1.000    1.000  90.00  90.00  90.00 P 1           1\n/' $PDBIN > "$PDBNAME"_cryst.pdb
-fi
-fi
+    sed '1s/^/CRYST1    1.000   1.000    1.000  90.00  90.00  90.00 P 1           1\n/' $PDBIN > "$PDBNAME"_cryst.pdb
 
-PDB1="$PDBNAME"_cryst
+    PDB1="$PDBNAME"_cryst
+
+    fi
+
+else
+
+    PDB1="$PDBNAME"    
+fi
 
 
 ############################################################################
@@ -429,20 +436,16 @@ if [ "$LIGANDS" = "1" ]; then
  else
 
     grep "^TER\|END\|^CRYST1\|^ATOM" $PDB1.pdb > ${PDB1}_altered.pdb
-
      
 fi
 
 sed -i 's/UNK/ALA/g' "$PDB1"_altered.pdb
-
-mv "$PDB1".pdb $DIREC1/
 
 PDB2="$PDB1"_altered
 
 REST=""$PDB2"-extrabonds.txt "$PDB2"-extrabonds-cis.txt "$PDB2"-extrabonds-chi.txt"
 
 PARAMS=""${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
-
 
 
 ############################################################################

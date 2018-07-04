@@ -1,0 +1,80 @@
+Info) VMD for LINUXAMD64, version 1.9.3 (November 30, 2016)
+Info) http://www.ks.uiuc.edu/Research/vmd/                         
+Info) Email questions and bug reports to vmd@ks.uiuc.edu           
+Info) Please include this reference in published work using VMD:   
+Info)    Humphrey, W., Dalke, A. and Schulten, K., `VMD - Visual   
+Info)    Molecular Dynamics', J. Molec. Graphics 1996, 14.1, 33-38.
+Info) -------------------------------------------------------------
+Info) Multithreading available, 20 CPUs detected.
+Info)   CPU features: SSE2 AVX AVX2 FMA 
+Info) Free system memory: 10GB (32%)
+Info) Creating CUDA device pool and initializing hardware...
+Info) Detected 1 available CUDA accelerator:
+Info) [0] GeForce GTX 1080   20 SM_6.1 @ 1.73 GHz, 7.9GB RAM, KTO, AE2, ZCP
+Info) Detected 1 available TachyonL/OptiX ray tracing accelerator
+Info)   Compiling 1 OptiX shaders on 1 target GPU...
+Info) Dynamically loaded 2 plugins in directory:
+Info) /opt/bioxray/programs/vmd-1.93/lib/plugins/LINUXAMD64/molfile
+after#0
+0.5
+1.7
+psfplugin) Detected a Charmm PSF file
+Info) Using plugin psf for structure file 3jd8_cryst_altered_autopsf.psf
+Info) Analyzing structure ...
+Info)    Atoms: 17558
+Info)    Bonds: 17803
+Info)    Angles: 32118  Dihedrals: 47194  Impropers: 2979  Cross-terms: 1125
+Info)    Bondtypes: 0  Angletypes: 0  Dihedraltypes: 0  Impropertypes: 0
+Info)    Residues: 1133
+Info)    Waters: 0
+Info)    Segments: 4
+Info)    Fragments: 4   Protein: 4   Nucleic: 0
+0
+dcdplugin) detected standard 32-bit DCD file of native endianness
+dcdplugin) CHARMM format DCD file (also NAMD 2.1 and later)
+Info) Using plugin dcd for coordinates from file simulation-step1.dcd
+Info) Finished with coordinate file simulation-step1.dcd.
+0
+Calculating the cross correlation...
+ccp4plugin) No IMOD stamp found.
+ccp4plugin) voxel type: float (32-bit real)
+ccp4plugin)    extent: 200 x 200 x 200
+ccp4plugin) nxyzstart: 0 x 0 x 0
+ccp4plugin)  origin2k: 0.000000 x 0.000000 x 0.000000
+ccp4plugin)      grid: 200 x 200 x 200
+ccp4plugin)   celldim: 261.308014 x 261.308014 x 261.308014
+cpp4plugin)cellangles: 90.000000, 90.000000, 90.000000
+ccp4plugin)   crs2xyz: 1 2 3
+ccp4plugin)  symBytes: 0
+ccp4plugin) using CCP4 n[xyz]start origin
+ccp4plugin) reading float (32-bit real) voxel data
+Info) Analyzing Volume...
+Info)    Grid size: 200x200x200  (122 MB)
+Info)    Total voxels: 8000000
+Info)    Min: -0.0371003  Max: 0.0866903  Range: 0.123791
+Info)    Computing volume gradient map for smooth shading
+Info) Added volume data, name=emd_6640.mrc : CCP4 Electron Density Map
+psfplugin) Detected a Charmm PSF file
+Info) Using plugin psf for structure file 3jd8_cryst_altered_autopsf.psf
+Info) Analyzing structure ...
+Info)    Atoms: 17558
+Info)    Bonds: 17803
+Info)    Angles: 32118  Dihedrals: 47194  Impropers: 2979  Cross-terms: 1125
+Info)    Bondtypes: 0  Angletypes: 0  Dihedraltypes: 0  Impropertypes: 0
+Info)    Residues: 1133
+Info)    Waters: 0
+Info)    Segments: 4
+Info)    Fragments: 4   Protein: 4   Nucleic: 0
+2
+dcdplugin) detected standard 32-bit DCD file of native endianness
+dcdplugin) CHARMM format DCD file (also NAMD 2.1 and later)
+Info) Using plugin dcd for coordinates from file simulation-step1.dcd
+Info) Finished with coordinate file simulation-step1.dcd.
+2
+2
+Info) Opened coordinate file frame0.pdb for writing.
+Info) Finished with coordinate file frame0.pdb.
+Info) Opened coordinate file frame1.pdb for writing.
+Info) Finished with coordinate file frame1.pdb.
+Info) VMD for LINUXAMD64, version 1.9.3 (November 30, 2016)
+Info) Exiting normally.
