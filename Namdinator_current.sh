@@ -252,7 +252,7 @@ MAPEXT=$(echo "$MAPFILE"| rev| cut -d\. -f1|rev )
 PDBCOUNTDOT=$(tr -dc '.' <<<"$PDBFILE" | awk '{print length}')
 MAPCOUNTDOT=$(tr -dc '.' <<<"$MAPFILE" | awk '{print length}')
 
-if [ "$PDBCOUNTDOT" -gt 1 ] || [ "$MAPCOUNTDOT" -gt 1 ] ; then
+if [[ "$PDBCOUNTDOT" -gt 1 ]]  ||  [[ "$MAPCOUNTDOT" -gt 1 ]] ; then
    echo "
 Namdinator does not support input files with multiple \".\" in them. Please rename input files so they only contain one \".\" per file
 "
