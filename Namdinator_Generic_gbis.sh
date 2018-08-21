@@ -22,7 +22,7 @@
 
 #NAMDMASTER="/usr/local/NAMD_2.12_Linux-x86_64-multicore-CUDA"
 
-ROSETTA_BIN="/usr/local/rosetta_test"
+#ROSETTA_BIN="/usr/local/rosetta_test"
 
 #PHENIXMASTER="/usr/local/phenix-1.13-2998"
 
