@@ -22,7 +22,7 @@
 
 #NAMDMASTER="/usr/local/NAMD_2.12_Linux-x86_64-multicore-CUDA"
 
-#ROSETTA_BIN="/usr/local/rosetta_test"
+ROSETTA_BIN="/usr/local/rosetta_test"
 
 #PHENIXMASTER="/usr/local/phenix-1.13-2998"
 
@@ -130,53 +130,73 @@ usage()
 {
 cat <<EOF
 usage: $0 options
-$normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
-To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
+Namdinator sets up and runs a MDFF simulation using VMD and NAMD2. MDFF is basically a flexiable fittting of the input PDB file into the input density map, inside a molecular dynamics simulation using the density as a steering force for the fitting procedure.
+To use Namdinator the minimum you  $bold have $normal to supply Namdinator with is: a standard formatted PDB file using the -p flag (e.g. -p fit.pdb), a density map file (mrc/map/ccp4 etc) using the -m flag (e.g. -m map.mrc) and the resolution of the input map in Å using the -r flag (e.g. -r 4.4). Optionally, but highly recommended, If you can add a default phenix.real space refinement step to the output PDB file from the MDFF simulation, using the -x flag (no value needed).
 $normal.
 Examples:
-To run Namdinator without phenix.real_space refinement:
+To run a minimal Namdinator run:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map
+./Namdinator.sh -p input.pdb -m input.map -r 4.4
 $normal
-To run Namdinator with phenix.real_space refinement:
+To run Namdinator with phenix.real_space refinement added:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
+./Namdinator.sh -p input.pdb -m input.map -r 4.4 -x
 $normal
-To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
+To read about Namdinator and all of the additional flags you can use to customize Namdinator further you simply have to type:
 $bold
-./Namdinator.sh -help
+./Namdinator.sh -h
 $normal
-Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
-All of Namdinator's flags are listed below:
+Instead of editing the Namdinator script, you can simply change many of the standard parameters directly from the commandline using the below flags.
       -h Help
       -p Input PDB file
       -m Input map file (.mrc/.ccp4/.map/.situs)
+      -r Resolution of the input map. Used for only CCC calculations and for phenix.real space refinement (if applicable).
       -e Number of Minimization steps (default is 2000)
-      -g G-scale value (default: 0.3)
-      -b B-factor value to be applied all atoms in the output PDB file (default: 20).
-      -t Inital temperature (default: 300 kelvin)
-      -f Final temperature (default: 300 kelvin)
-      -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
-      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
-      -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
-      -l If this flag is set, all present HETATM will be allowed to stay in the input PDB file and used throughout the simulation. Does not work well with the -x flag.
-      -n Number or processors used (default: number of processors divided by number of threads)
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
-**************************************************************
-All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt if relevant), are stored in the folder "data_files" whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
-**************************************************************
-Namdinator writes out the last frame from the calculated trajectory as a PDB file called last_frame.pdb. Hydrogens are removed from the PDB file and all HSD/HSE/HSP residues are converted back to HIS.
-The last_frame.pdb file is then used (if the -x flag is set) as input model for the Phenix.real_space_refine, together with the input map. The output is written as a PDB file named: last_frame_rsr.pdb.
-last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools and rosetta score functions. A summary of the results from all three files is displayed in a table at the end of Namdinator for easy comparison.
-**************************************************************
-To visualize the trajectory calculated during the simulation in VMD afterwards, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables easy visualizationt of both the map and the trajectory calculated by Namdinator.
-To launch the script from the commandline, simply type:$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD (if VMD is installed or module loaded) and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model. As all maps are different, chances are very high that the default contour isovalue will not work at all with your map. As I have found no smart automatic way of setting a usefull contour level, you will have to change the isovalue manually in VMD. This is done by going to the "graphical representations" window that should open together with VMD after running the visualize_trj.tcl script. There you will have to alter the isovalue value until your map is displayed as you prefer.
-************************************************************** $bold
-REMARK:"$normal"The input PDB file is currently not allowed to contain any record's besides the ATOM record, as they tend to make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that any non-ATOM records will be cropped from the PDB used for the simulation, but the orginal input PDB file will remain intact.
-The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces acting on the system to fit the map, will be. In general a gscale of 0.3-0.6 works fine, however, too high g-scale values can make the simulation crash due to too high velocity of the atoms. If you, despite using a relativ low g-scale value, still experience to fast movement of the atoms you could try to increase the number of minimization steps to above the default 2000 by using the -e flag, though 2000 seems to work really well.
-Also, please note, that due to the stochastic nature of molecular dynamics simulations, it is expected that trajectories obtained from identical input files will differ slightly from each run.
-Enjoy
+      -g G-scale value (default: 0.3): The force of which the density is able to pull the model with. Too high and you risk the simulations breaks due to too high velocity of some of the atoms. Typical values to test are between 0.01-10.
+      -b B-factor value to be applied to all of the atoms in the output PDB file(s) (default: 20).
+      -t Inital temperature (default: 300 kelvin): the temperature the simulation starts at. 
+      -f final temperature (default: 300 kelvin) the target temp the simulation is either cooled or heated to during the simulation. If Initial and Final temp is identical no cooling or heating is performed.
+      -s Number of steps the simulation runs (default 20000). Should be increased (typical values: 20000-500000) if large conformational changes are needed to fit a model, in order to enable the model to reach a convergence.
+      -x When set performs a default phenix real space refinement run on the output PDB file(s) from the simulation. 
+      -l If this flag is set, all HETATM in the input PDB file, will be not be removed and hence be included in the autoPSF step and, if autoPSF does not fail in the simulation as well. Does not work well with the -x flag!!!
+      -n Number or processors used (default: number of processors on the workstation Namdinator is run from, divided by number of threads)
+      -c Number or macro cycles to run during phenix.real_space refine (default is 5).
+      -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
+
+****************************************************************************************************************************
+All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt), are stored in the folder "data_files", whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
+
+****************************************************************************************************************************
+Namdinator writes out the last frame from the calculated trajectory as a PDB file called last_frame.pdb. Hydrogens are removed from the PDB file and the file is converted back to standard PDB format.
+The last_frame.pdb file is then used (if the -x flag is set) as input model for Phenix.real_space_refine, together with the input map. The output froom that is written as another PDB file named: last_frame_rsr.pdb.
+last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools and rosetta score functions. A summary of the results from all three files is displayed in a table at the end of Namdinator for easy comparison. A separate table showing the top-10 highest (worst) scoring residues, based on the rosetta score function, is also listed at the end of the run.
+
+****************************************************************************************************************************
+To visualize the trajectory calculated during the simulation in VMD afterwards, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables visualization of both the input map and the trajectory calculated by Namdinator.
+To launch the script from the commandline, simply type:$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD (if VMD is available) and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model. As all maps are different, chances are very high that the picked default contour isovalue will not work at with your map, and will instead either show nothing or a very noisy map. As I have found no smart automatic way of setting a usefull contour level, you will have to change the isovalue manually in VMD. This is done by going to the "graphical representations" window that should open together with VMD after running the visualize_trj.tcl script. There you will have to alter the isovalue value until the map is contoured to your liking.
+
+**************************************************************************************************************************** $bold
+REMARK:$normal Default Namdinator settings will remove all HETATM records, as they generally tend to make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that all non-ATOM records will be cropped from the PDB used for the simulation, and that the output files will not contain these atoms. The orginal input PDB file will of course remain intact.
+The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces acting on the system to fit the map, will be. In general a gscale of 0.3-0.6 works fine, however, too high g-scale values can make the simulation crash due to too high velocity of the atoms. If you, despite using a relativ low g-scale value, still experience to fast movement of the atoms you could try to increase the number of minimization steps to a higher value than the default 2000 by using the -e flag, though 2000 seems to work really well.
+
+**************************************************************************************************************************** $bold
+Tips for getting the most out of Namdinator $normal
+If Namdinator fails with errors like “Bad global bond/angle/dihedral count” it is advisable to load the input PDB file (with HETATM removed manually) into VMD and run autopsf on it. If the resulting model displays any extraordinary long bonds, remove either of the involved residues from the PDB file and try again.
+
+If the simulations crashes due to atoms moving too fast and increasing the minimization steps did not solve it, it is advisable to visually look at the involved atoms, as stated in the log file. It is important to know NAMD only outputs an atom number and that atom number does not correlate with the atom numbering in the input PDB file. Instead the atom number corresponds to atom numbering in the .psf file created by autoPSF. Within the .psf file the residue number and Chain ID belonging to the problematic atom(s), can be obtained, thus enabling visual inspection of the atoms in the input PDB file. Often it is obvious why these atoms are causing the simulation to crash and it is advisable to correct these residues manually or deleting them before trying again.
+
+In general, it is always a good idea to run iterative rounds of Namdinator, where the output from one round is used as input for the next round. This have been shown to be good at catching models stuck in a small local minimum or tidy up more severe clashes. Varying the number of maco crycles (between 1 to 5) used for phenix real space refinement, has also been observed to give very different results. This can be down using the flag –c.
+To focus a fitting procedure on a specific part of the map, segmentation of the input map can be a very powerful approach. This is especially useful for fitting individual domains from a multi domain model or to avoid the model going into density you know it does not belong in e.g. micelle density of membrane proteins etc. Furthermore, if the input map contains density for large glycosylation’s or large ligands, removing the corresponding density via segmentation could improve the obtained results, as HETATM’s are automatically removed from the input PDB file.
+
+To obtain good results when trying to fit a model, where relative large conformational changes are needed, it can be very beneficial to use different filtered versions of the input map. The input map can be low-pass filtered to either 10, 15 or 20 Å using various EM software (EMAN, Relion, Chimera etc.) and then used as input for Namdinator. The resulting output model can then be used as input for another round of Namdinator against the original unfiltered map this time. For such scenarios it may be beneficial to run the first Namdinator run using a relative low G-scale value (-g 0.05-0.1) and high number of steps (-s 100.000-500.000) together with the low-passed filtered version of the map. Followed by the second Namdinator run where the g-scale is increased relative to the first round (0.5-5) for the original unfiltered map. To identify the correct combinations of the above-mentioned parameters several Namdinator runs are most likely needed.
+
+MDFF in general is not very well suited for dealing with conformational changes where parts of the model undergo large rotations (=> 40-45 degrees). In such cases it is highly recommended that the input model is split into independent domains, if applicable, and rotated manually, in programs like Coot or Chimera. Then the domains can either be used as one single PDB file for a Namdinator run or run independent of each other in multiple Namdinator runs. This kind of manual intervention can not only greatly enhance the quality of the obtained results when using Namdinator but can also sometimes be the difference between failure or success.
+
+If phenix.real_space_refine is enabled, via the -x flag, default settings are used. While this is sufficient and beneficial for many scenarios, it will not work well for all cases. For such cases it is advisable to run phenix.real_space_refine manually in order to utilize non-default settings. Make sure to use the last_frame.pdb file as input together with the input map and the stated resolution of the map. 
+
+Lastly, please keep in mind that due to the stochastic nature of molecular dynamics simulations, it is expected that trajectories obtained from identical input files will differ slightly from each run.
+Enjoy!
+
 EOF
 }
 
@@ -318,41 +338,41 @@ fi
 
 if [ "$PDBIN" = "" ] && [ "$MAPIN" = "" ]; then
    echo "$normal
-$normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
-To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
+Namdinator sets up and runs a MDFF simulation using VMD and NAMD2. MDFF is basically a flexiable fittting of the input PDB file into the input density map, inside a molecular dynamics simulation using the density as a steering force for the fitting procedure.
+To use Namdinator the minimum you  $bold have $normal to supply Namdinator with is: a standard formatted PDB file using the -p flag (e.g. -p fit.pdb), a density map file (mrc/map/ccp4 etc) using the -m flag (e.g. -m map.mrc) and the resolution of the input map in Å using the -r flag (e.g. -r 4.4). Optionally, but highly recommended, If you can add a default phenix.real space refinement step to the output PDB file from the MDFF simulation, using the -x flag (no value needed).
 $normal.
 Examples:
-To run Namdinator without phenix.real_space refinement:
+To run a minimal Namdinator run:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map
+./Namdinator.sh -p input.pdb -m input.map -r 4.4
 $normal
-To run Namdinator with phenix.real_space refinement:
+To run Namdinator with phenix.real_space refinement added:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
+./Namdinator.sh -p input.pdb -m input.map -r 4.4 -x
 $normal
-To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
+To read about Namdinator and all of the additional flags you can use to customize Namdinator further you simply have to type:
 $bold
-./Namdinator.sh -help
+./Namdinator.sh -h
 $normal
-Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
-All of Namdinator's flags are listed below:
+Instead of editing the Namdinator script, you can simply change many of the standard parameters directly from the commandline using the below flags.
       -h Help
       -p Input PDB file
       -m Input map file (.mrc/.ccp4/.map/.situs)
+      -r Resolution of the input map. Used for only CCC calculations and for phenix.real space refinement (if applicable).
       -e Number of Minimization steps (default is 2000)
-      -g G-scale value (default: 0.3)
-      -b B-factor value to be applied all atoms in the output PDB file (default: 20).
-      -t Inital temperature (default: 300 kelvin)
-      -f Final temperature (default: 300 kelvin)
-      -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
-      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
-      -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
-      -l If this flag is set, all present HETATM will be allowed to stay in the input PDB file and used throughout the simulation. Does not work well with the -x flag.
-      -n Number or processors used (default: number of processors divided by number of threads)
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
+      -g G-scale value (default: 0.3): The force of which the density is able to pull the model with. Too high and you risk the simulations breaks due to too high velocity of some of the atoms. Typical values to test are between 0.01-10.
+      -b B-factor value to be applied to all of the atoms in the output PDB file(s) (default: 20).
+      -t Inital temperature (default: 300 kelvin): the temperature the simulation starts at. 
+      -f final temperature (default: 300 kelvin) the target temp the simulation is either cooled or heated to during the simulation. If Initial and Final temp is identical no cooling or heating is performed.
+      -s Number of steps the simulation runs (default 20000). Should be increased (typical values: 20000-500000) if large conformational changes are needed to fit a model, in order to enable the model to reach a convergence.
+      -x When set performs a default phenix real space refinement run on the output PDB file(s) from the simulation. 
+      -l If this flag is set, all HETATM in the input PDB file, will be not be removed and hence be included in the autoPSF step and, if autoPSF does not fail in the simulation as well. Does not work well with the -x flag!!!
+      -n Number or processors used (default: number of processors on the workstation Namdinator is run from, divided by number of threads)
+      -c Number or macro cycles to run during phenix.real_space refine (default is 5).
+      -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
 "
-    exit 1
+sleep 0.3
+   exit 1
 
 elif [ "$PDBEXT" != "pdb" ]; then
  echo "You have to input a .pdb file!"
