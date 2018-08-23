@@ -22,7 +22,7 @@
 
 #NAMDMASTER="/usr/local/NAMD_2.12_Linux-x86_64-multicore-CUDA"
 
-ROSETTA_BIN="/usr/local/rosetta_test"
+#ROSETTA_BIN="/usr/local/rosetta_test"
 
 #PHENIXMASTER="/usr/local/phenix-1.13-2998"
 
@@ -963,7 +963,6 @@ Running Molprobity valdations tools on input and output PDB files
 ###############Rosetta score for whole model against map ###################
 ############################################################################
 
-
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 LIMHIGH=4.0
@@ -973,7 +972,20 @@ RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
 LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
 LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
 
-if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
+
+LIMHIGH=4.0
+LIMLOW=3.5
+
+RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
+LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
+LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
+
+fi
+
+
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -992,7 +1004,7 @@ echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
 "
 
-elif [ "$RES1" -lt "$LIM2" ]; then
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -lt "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -1009,7 +1021,7 @@ score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res
 echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
 "
-elif [ "$RES1" -gt  "$LIM1" ]; then
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -gt  "$LIM1" ]; then
 
     cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -1027,21 +1039,10 @@ score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res
 echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
 "
-
-else
-    :
 fi
 
- else
 
-LIMHIGH=4.0
-LIMLOW=3.5
-
-RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
-LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
-LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
-
-if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
+if [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -1058,7 +1059,7 @@ Calculating Rosetta scores for input and output PDB files. The lower the score, 
 "
 
 
-elif [ "$RES1" -lt "$LIM2" ]; then
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -lt "$LIM2" ]; then
 
 cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -1074,7 +1075,7 @@ echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
 "
 
-elif [ "$RES1" -gt  "$LIM1" ]; then
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -gt  "$LIM1" ]; then
 
     cat<<EOF > rosetta.sh
 score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
@@ -1090,15 +1091,12 @@ echo -n "
 Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
 "
 
-else
-    :
 fi
-
- fi
  
 ############################################################################
 ###############Rosetta score for individual residues #######################
 ############################################################################
+
 
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
  
@@ -1125,7 +1123,7 @@ echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
 
- else
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 cat<<EOF > rosetta_resi.sh
 per_residue_energies.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res > ${PDB2}_perRes.log
 sort -k21 -n -r default.out > ${PDB2}_perRes.sc
@@ -1143,7 +1141,7 @@ per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame.pdb -out:file:silent 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
-     fi
+fi
 ############################################################################
 ######################## wait for all PIDS to finish #######################
 ############################################################################
@@ -1363,6 +1361,19 @@ LFR=LFR
 fi
 
 
+if [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
+
+ROSINP=n/a
+ROSLF=n/a
+
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
+
+ROSINP=n/a
+ROSLF=n/a
+ROSLFR=n/a
+
+fi
+
 echo -n '
 '$bold'
 To visualize the simulation in VMD simply copy/paste this command: vmd -dispdev win -e scripts/visualize_trj.tcl '$normal'
@@ -1391,8 +1402,11 @@ printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${R
 printf "+---------------------------------------------------------+\n"
 echo ""
 
+if [ -f lf_perRes.log ] ; then
+    
+    SCORFUNC="$(grep -o -P '.{0,0}SCOREFUNCTION.{0,20}' lf_perRes.log)"
 
-SCORFUNC="$(grep -o -P '.{0,0}SCOREFUNCTION.{0,20}' lf_perRes.log)"
+fi
 
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
@@ -1439,6 +1453,7 @@ mv $PDB2-extrabonds-cis.txt $DIREC1/ 2> /dev/null
 mv $PDB2-extrabonds-chi.txt $DIREC1/ 2> /dev/null
 mv $PDB2-extrabonds.txt $DIREC1/ 2> /dev/null
 mv $PDB2.pdb $DIREC1/ 2> /dev/null
+mv "$PDBNAME"_cryst.pdb $DIREC1/ 2> /dev/null
 mv ${PDB2}_autopsf*.* $DIREC1/ 2> /dev/null
 mv $PDB2-grid.pdb $DIREC1/ 2> /dev/null
 mv $MAPNAME-grid.dx $DIREC1/ 2> /dev/null

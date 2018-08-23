@@ -1,0 +1,34 @@
+(B[m
+Namdinator sets up and runs a MDFF simulation using VMD and NAMD2. MDFF is basically a flexiable fittting of the input PDB file into the input density map, inside a molecular dynamics simulation using the density as a steering force for the fitting procedure.
+To use Namdinator the minimum you  [1m have (B[m to supply Namdinator with is: a standard formatted PDB file using the -p flag (e.g. -p fit.pdb), a density map file (mrc/map/ccp4 etc) using the -m flag (e.g. -m map.mrc) and the resolution of the input map in Å using the -r flag (e.g. -r 4.4). Optionally, but highly recommended, If you can add a default phenix.real space refinement step to the output PDB file from the MDFF simulation, using the -x flag (no value needed).
+(B[m.
+Examples:
+To run a minimal Namdinator run:
+[1m
+./Namdinator.sh -p input.pdb -m input.map -r 4.4
+(B[m
+To run Namdinator with phenix.real_space refinement added:
+[1m
+./Namdinator.sh -p input.pdb -m input.map -r 4.4 -x
+(B[m
+To read about Namdinator and all of the additional flags you can use to customize Namdinator further you simply have to type:
+[1m
+./Namdinator.sh -h
+(B[m
+Instead of editing the Namdinator script, you can simply change many of the standard parameters directly from the commandline using the below flags.
+      -h Help
+      -p Input PDB file
+      -m Input map file (.mrc/.ccp4/.map/.situs)
+      -r Resolution of the input map. Used for only CCC calculations and for phenix.real space refinement (if applicable).
+      -e Number of Minimization steps (default is 2000)
+      -g G-scale value (default: 0.3): The force of which the density is able to pull the model with. Too high and you risk the simulations breaks due to too high velocity of some of the atoms. Typical values to test are between 0.01-10.
+      -b B-factor value to be applied to all of the atoms in the output PDB file(s) (default: 20).
+      -t Inital temperature (default: 300 kelvin): the temperature the simulation starts at. 
+      -f final temperature (default: 300 kelvin) the target temp the simulation is either cooled or heated to during the simulation. If Initial and Final temp is identical no cooling or heating is performed.
+      -s Number of steps the simulation runs (default 20000). Should be increased (typical values: 20000-500000) if large conformational changes are needed to fit a model, in order to enable the model to reach a convergence.
+      -x When set performs a default phenix real space refinement run on the output PDB file(s) from the simulation. 
+      -l If this flag is set, all HETATM in the input PDB file, will be not be removed and hence be included in the autoPSF step and, if autoPSF does not fail in the simulation as well. Does not work well with the -x flag!!!
+      -n Number or processors used (default: number of processors on the workstation Namdinator is run from, divided by number of threads)
+      -c Number or macro cycles to run during phenix.real_space refine (default is 5).
+      -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
+
