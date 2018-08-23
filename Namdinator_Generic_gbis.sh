@@ -17,7 +17,6 @@
 # listed below
 ############################################################################
 
-
 #VMDMASTER="/usr/local/lib/vmd"
 
 #NAMDMASTER="/usr/local/NAMD_2.12_Linux-x86_64-multicore-CUDA"
@@ -433,12 +432,14 @@ System information: $DIST
 
 echo -n '
 Testing if all needed programs are installed
+
 '
 
 which vmd
 
 if [ "$?" = "0" ] ; then
     echo -n 'VMD seems to be installed on this machine
+
 '
 else
     echo -n '
@@ -451,6 +452,7 @@ which namd2
 
 if [ "$?" = "0" ] ; then
     echo -n 'NAMD2 seems to be installed on this machine
+
 '
 else
     echo -n '
@@ -464,6 +466,7 @@ which phenix
 
 if [ "$?" = "0" ] ; then
     echo -n 'PHENIX seems to be installed on this machine
+
 '
 else
     echo -n '

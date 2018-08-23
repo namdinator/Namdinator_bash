@@ -1,35 +1,29 @@
 #!/bin/bash
 # log to file
-
-VMDMASTER="/opt/bioxray/programs/vmd-1.93"
-
-module load vmd-1.93
-module load namd-cuda-2.12
-module load rosetta_mpi_2017.08.59291
 ############################################################################
 ############################################################################
-############################################################################
-#################### Namdinator Ver. 2.0 May  2018 #########################
+############## Namdinator Ver. 2.0 May  2018 by Rune Kidmose ###############
 ############################################################################
 ####### Namdinator is a Bash script for running an automatic MDFF ##########
 ####### (Molecular Dynamics Flexible Fitting) simulation from the ##########
-####### commandline. Namdinator Ver 1.2 supports VMD-1.93         ##########
-####### and charmm36 together with NAMD ver 2.12 (CUDA).          ##########
-####### After the simulation an optinal default Phenix.real_space ##########
-####### _refine run may be performed after the simulation.        ##########
-####### Phenix validation of the input PDB, the output PDB        ##########
-####### from the MD simulation alone (last_frame) and the PDB from##########
-####### the following real_space refinement run (last_frame_rsr)  ##########
-####### is run and the results are displayed side by side in a    ##########
-####### table at the end of the run. /Ruki Email: rtk@mbg.au.dk   ##########
+####### commandline. Namdinator v 2.0 depends on VMD-1.93         ##########
+####### (using charmm36), NAMD ver 2.12 (CUDA version), gnuplot,  ##########
+####### rossetta and phenix package. /Ruki Email: rtk@mbg.au.dk   ##########
 ############################################################################
 ############################################################################
 ############################################################################
+############################################################################
+# To run Namdinator it is required to set the path for each of the programs
+# listed below
+############################################################################
+module load vmd-1.93
+module load namd-cuda-2.12
+module load rosetta_mpi_2017.08.59291
 
-
 ############################################################################
-########### You can alter the below parameters for the MDFF setup,##########
-########### otherwise the stated default values will be used.     ##########
+# You can alter the below parameters for Namdinator in order to change the
+# used default values. Each parameter can also be set with individual flags
+# during initiation of each namdinator run, see help (-h) for morfe details.
 ############################################################################
 
 GS=0.3
@@ -48,9 +42,79 @@ PROCS="$(( $(lscpu | grep ^CPU\(s\)\: | awk '{print $2}') / $(lscpu | grep ^Thre
 
 BF=20
 
+
 ############################################################################
 ################DONT CHANGE ANYTHING BELOW THIS POINT!!!####################
 ############################################################################
+
+
+
+############################################################################
+######################### Loading the environments ######################### 
+############################################################################
+
+# check if vmd is in PATH and set VMDMASTERDIR
+if [ "$(which vmd)" != "" ]; then
+    if [ "${VMDMASTER}" = "" ]; then
+	echo 1
+	VMDMASTERDIR=$(grep "^set defaultvmddir" $(which vmd) | cut -d\= -f2- | sed 's/\"//g')
+    else
+	echo 2
+	VMDMASTERDIR=${VMDMASTER}
+    fi
+else
+    echo "No 'vmd' executable found in PATH"
+    exit 1
+fi
+
+# Check if namd2 is in PATH and set NAMDMASTERDIR 
+if [ "$(which namd2)" != "" ]; then
+    if [ "${NAMDMASTER}" = "" ]; then
+	NAMDMASTERDIR=$(which namd2 | rev| cut -d\/ -f2- |rev)
+    else
+	NAMDMASTERDIR=${NAMDMASTER}
+	PATH=${NAMDMATERDIR}:${PATH}
+    fi
+else
+    if [ "${NAMDMASTER}" = "" ]; then
+	echo "No 'namd2' executable found in PATH"
+        exit 1
+    else
+	NAMDMASTERDIR=${NAMDMASTER}
+	PATH=${NAMDMATERDIR}:${PATH}
+    fi
+fi
+if [ "$(which namd2)" = "" ]; then
+    echo "No 'namd2' executable found in PATH"
+    exit 1
+fi
+
+# Check if ROSETTA is in PATH and set ROSETTA_BINDIR
+if [ "${ROSETTA_BIN}" != "" ]; then
+    ROSETTA_BINDIR=${ROSETTA_BIN}
+    PATH=${ROSETTA_BINDIR}:${PATH}
+    ROSETTA_TAIL="$(ls ${ROSETTA_BINDIR} | grep "score_jd2." | cut -d\. -f2- )"
+fi
+
+if [ "${PHENIX}" != "" ]; then
+    if [ "${PHENIXMASTER}" = "" ]; then
+	PHENIXMASTERDIR="${PHENIX}"
+    else 
+	PHENIXMASTERDIR="${PHENIXMASTER}"
+    fi
+ else
+   PHENIXMASTERDIR="${PHENIXMASTER}"
+fi
+if [ "${PHENIXMASTERDIR}" != "" ]; then
+    source ${PHENIXMASTERDIR}/phenix_env.sh
+  else
+    echo "No PHENIXMASTER Dir is set"
+fi
+
+
+LD_LIBRARY_PATH=${VMDMASTERDIR}:${LD_LIBRARY_PATH}
+
+
 
 bold=$(tput bold)
 normal=$(tput sgr0)
@@ -59,84 +123,77 @@ usage()
 {
 cat <<EOF
 usage: $0 options
-
-$normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
-
-To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
+Namdinator sets up and runs a MDFF simulation using VMD and NAMD2. MDFF is basically a flexiable fittting of the input PDB file into the input density map, inside a molecular dynamics simulation using the density as a steering force for the fitting procedure.
+To use Namdinator the minimum you  $bold have $normal to supply Namdinator with is: a standard formatted PDB file using the -p flag (e.g. -p fit.pdb), a density map file (mrc/map/ccp4 etc) using the -m flag (e.g. -m map.mrc) and the resolution of the input map in Å using the -r flag (e.g. -r 4.4). Optionally, but highly recommended, If you can add a default phenix.real space refinement step to the output PDB file from the MDFF simulation, using the -x flag (no value needed).
 $normal.
-
 Examples:
-
-To run Namdinator without phenix.real_space refinement:
+To run a minimal Namdinator run:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map
+./Namdinator.sh -p input.pdb -m input.map -r 4.4
 $normal
-To run Namdinator with phenix.real_space refinement:
+To run Namdinator with phenix.real_space refinement added:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
+./Namdinator.sh -p input.pdb -m input.map -r 4.4 -x
 $normal
-To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
+To read about Namdinator and all of the additional flags you can use to customize Namdinator further you simply have to type:
 $bold
-./Namdinator.sh -help
+./Namdinator.sh -h
 $normal
-
-Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
-
-All of Namdinator's flags are listed below:
-
+Instead of editing the Namdinator script, you can simply change many of the standard parameters directly from the commandline using the below flags.
       -h Help
-
       -p Input PDB file
-
       -m Input map file (.mrc/.ccp4/.map/.situs)
-
+      -r Resolution of the input map. Used for only CCC calculations and for phenix.real space refinement (if applicable).
       -e Number of Minimization steps (default is 2000)
+      -g G-scale value (default: 0.3): The force of which the density is able to pull the model with. Too high and you risk the simulations breaks due to too high velocity of some of the atoms. Typical values to test are between 0.01-10.
+      -b B-factor value to be applied to all of the atoms in the output PDB file(s) (default: 20).
+      -t Inital temperature (default: 300 kelvin): the temperature the simulation starts at. 
+      -f final temperature (default: 300 kelvin) the target temp the simulation is either cooled or heated to during the simulation. If Initial and Final temp is identical no cooling or heating is performed.
+      -s Number of steps the simulation runs (default 20000). Should be increased (typical values: 20000-500000) if large conformational changes are needed to fit a model, in order to enable the model to reach a convergence.
+      -x When set performs a default phenix real space refinement run on the output PDB file(s) from the simulation. 
+      -l If this flag is set, all HETATM in the input PDB file, will be not be removed and hence be included in the autoPSF step and, if autoPSF does not fail in the simulation as well. Does not work well with the -x flag!!!
+      -n Number or processors used (default: number of processors on the workstation Namdinator is run from, divided by number of threads)
+      -c Number or macro cycles to run during phenix.real_space refine (default is 5).
+      -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
 
-      -g G-scale value (default: 0.3)
+****************************************************************************************************************************
+All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt), are stored in the folder "data_files", whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
 
-      -b B-factor value to be applied all atoms in the output PDB file (default: 20).
+****************************************************************************************************************************
+Namdinator writes out the last frame from the calculated trajectory as a PDB file called last_frame.pdb. Hydrogens are removed from the PDB file and the file is converted back to standard PDB format.
+The last_frame.pdb file is then used (if the -x flag is set) as input model for Phenix.real_space_refine, together with the input map. The output froom that is written as another PDB file named: last_frame_rsr.pdb.
+last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools and rosetta score functions. A summary of the results from all three files is displayed in a table at the end of Namdinator for easy comparison. A separate table showing the top-10 highest (worst) scoring residues, based on the rosetta score function, is also listed at the end of the run.
 
-      -t Inital temperature (default: 300 kelvin)
+****************************************************************************************************************************
+To visualize the trajectory calculated during the simulation in VMD afterwards, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables visualization of both the input map and the trajectory calculated by Namdinator.
+To launch the script from the commandline, simply type:$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD (if VMD is available) and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model. As all maps are different, chances are very high that the picked default contour isovalue will not work at with your map, and will instead either show nothing or a very noisy map. As I have found no smart automatic way of setting a usefull contour level, you will have to change the isovalue manually in VMD. This is done by going to the "graphical representations" window that should open together with VMD after running the visualize_trj.tcl script. There you will have to alter the isovalue value until the map is contoured to your liking.
 
-      -f Final temperature (default: 300 kelvin)
+**************************************************************************************************************************** $bold
+REMARK:$normal Default Namdinator settings will remove all HETATM records, as they generally tend to make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that all non-ATOM records will be cropped from the PDB used for the simulation, and that the output files will not contain these atoms. The orginal input PDB file will of course remain intact.
+The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces acting on the system to fit the map, will be. In general a gscale of 0.3-0.6 works fine, however, too high g-scale values can make the simulation crash due to too high velocity of the atoms. If you, despite using a relativ low g-scale value, still experience to fast movement of the atoms you could try to increase the number of minimization steps to a higher value than the default 2000 by using the -e flag, though 2000 seems to work really well.
 
-      -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
+**************************************************************************************************************************** $bold
+Tips for getting the most out of Namdinator $normal
+If Namdinator fails with errors like “Bad global bond/angle/dihedral count” it is advisable to load the input PDB file (with HETATM removed manually) into VMD and run autopsf on it. If the resulting model displays any extraordinary long bonds, remove either of the involved residues from the PDB file and try again.
 
-      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
+If the simulations crashes due to atoms moving too fast and increasing the minimization steps did not solve it, it is advisable to visually look at the involved atoms, as stated in the log file. It is important to know NAMD only outputs an atom number and that atom number does not correlate with the atom numbering in the input PDB file. Instead the atom number corresponds to atom numbering in the .psf file created by autoPSF. Within the .psf file the residue number and Chain ID belonging to the problematic atom(s), can be obtained, thus enabling visual inspection of the atoms in the input PDB file. Often it is obvious why these atoms are causing the simulation to crash and it is advisable to correct these residues manually or deleting them before trying again.
 
-      -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
+In general, it is always a good idea to run iterative rounds of Namdinator, where the output from one round is used as input for the next round. This have been shown to be good at catching models stuck in a small local minimum or tidy up more severe clashes. Varying the number of maco crycles (between 1 to 5) used for phenix real space refinement, has also been observed to give very different results. This can be down using the flag –c.
+To focus a fitting procedure on a specific part of the map, segmentation of the input map can be a very powerful approach. This is especially useful for fitting individual domains from a multi domain model or to avoid the model going into density you know it does not belong in e.g. micelle density of membrane proteins etc. Furthermore, if the input map contains density for large glycosylation’s or large ligands, removing the corresponding density via segmentation could improve the obtained results, as HETATM’s are automatically removed from the input PDB file.
 
-      -l If this flag is set, all present HETATM will be allowed to stay in the input PDB file and used throughout the simulation. Does not work well with the -x flag.
+To obtain good results when trying to fit a model, where relative large conformational changes are needed, it can be very beneficial to use different filtered versions of the input map. The input map can be low-pass filtered to either 10, 15 or 20 Å using various EM software (EMAN, Relion, Chimera etc.) and then used as input for Namdinator. The resulting output model can then be used as input for another round of Namdinator against the original unfiltered map this time. For such scenarios it may be beneficial to run the first Namdinator run using a relative low G-scale value (-g 0.05-0.1) and high number of steps (-s 100.000-500.000) together with the low-passed filtered version of the map. Followed by the second Namdinator run where the g-scale is increased relative to the first round (0.5-5) for the original unfiltered map. To identify the correct combinations of the above-mentioned parameters several Namdinator runs are most likely needed.
 
-      -n Number or processors used (default: number of processors divided by number of threads)
+MDFF in general is not very well suited for dealing with conformational changes where parts of the model undergo large rotations (=> 40-45 degrees). In such cases it is highly recommended that the input model is split into independent domains, if applicable, and rotated manually, in programs like Coot or Chimera. Then the domains can either be used as one single PDB file for a Namdinator run or run independent of each other in multiple Namdinator runs. This kind of manual intervention can not only greatly enhance the quality of the obtained results when using Namdinator but can also sometimes be the difference between failure or success.
 
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
+If phenix.real_space_refine is enabled, via the -x flag, default settings are used. While this is sufficient and beneficial for many scenarios, it will not work well for all cases. For such cases it is advisable to run phenix.real_space_refine manually in order to utilize non-default settings. Make sure to use the last_frame.pdb file as input together with the input map and the stated resolution of the map. 
 
-**************************************************************
-All files produced by Namdinator pertaining to the actual simulation (and phenix real space refienemnt if relevant), are stored in the folder "data_files" whereas the log files and scripts produced by Namdinator are all stored in the folders "log_files" and "scripts" respectively.
-
-**************************************************************
-Namdinator writes out the last frame from the calculated trajectory as a PDB file called last_frame.pdb. Hydrogens are removed from the PDB file and all HSD/HSE/HSP residues are converted back to HIS.
-The last_frame.pdb file is then used (if the -x flag is set) as input model for the Phenix.real_space_refine, together with the input map. The output is written as a PDB file named: last_frame_rsr.pdb.
-last_frame.pdb and last_frame_rsr.pdb are then, together with the input PDB file, run through selected Phenix validations tools and rosetta score functions. A summary of the results from all three files is displayed in a table at the end of Namdinator for easy comparison.
-
-**************************************************************
-To visualize the trajectory calculated during the simulation in VMD afterwards, Namdinator automatically creates a .tcl script$bold (visualize_trj.tcl)$normal which enables easy visualizationt of both the map and the trajectory calculated by Namdinator.
-
-To launch the script from the commandline, simply type:$bold vmd -dispdev win -e visualize_trj.tcl .$normal This will open VMD (if VMD is installed or module loaded) and initiate a looped playback of the trajectory, while enabling you to move around and inspect the model. As all maps are different, chances are very high that the default contour isovalue will not work at all with your map. As I have found no smart automatic way of setting a usefull contour level, you will have to change the isovalue manually in VMD. This is done by going to the "graphical representations" window that should open together with VMD after running the visualize_trj.tcl script. There you will have to alter the isovalue value until your map is displayed as you prefer.
-
-************************************************************** $bold
-REMARK:"$normal"The input PDB file is currently not allowed to contain any record's besides the ATOM record, as they tend to make the autoPSF step in MDFF fail and hence make Namdinator crash. This means that any non-ATOM records will be cropped from the PDB used for the simulation, but the orginal input PDB file will remain intact.
-The optimal choice of the scaling factor, i.e. the g-scale parameter, depends on the system to be fitted and the map. The higher the value, the stronger the forces acting on the system to fit the map, will be. In general a gscale of 0.3-0.6 works fine, however, too high g-scale values can make the simulation crash due to too high velocity of the atoms. If you, despite using a relativ low g-scale value, still experience to fast movement of the atoms you could try to increase the number of minimization steps to above the default 2000 by using the -e flag, though 2000 seems to work really well.
-Also, please note, that due to the stochastic nature of molecular dynamics simulations, it is expected that trajectories obtained from identical input files will differ slightly from each run.
-
-Enjoy
+Lastly, please keep in mind that due to the stochastic nature of molecular dynamics simulations, it is expected that trajectories obtained from identical input files will differ slightly from each run.
+Enjoy!
 
 EOF
 }
 
-while getopts “hp:m:n:c:b:g:e:t:f:s:r:lx” OPTION
+while getopts “hp:m:n:c:b:g:e:t:f:s:r:lxi” OPTION
 do
     case $OPTION in
          h)
@@ -182,6 +239,9 @@ do
         x)
             PHENIXRS=1
             ;;
+        i)
+            IMPLICIT="-gbis"
+            ;;
         ?)
              usage
              exit
@@ -194,6 +254,15 @@ do
     esac
 done
 
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${PHENIXMASTERDIR}" = "" ]] ; then
+
+       echo "
+Phenix real space refine was invoked using the -x flag, but it seems Phenix is either not installed or not installed correctly. 
+"
+       exit 1
+
+fi
 
 
 ############################################################################
@@ -261,62 +330,42 @@ fi
 
 
 if [ "$PDBIN" = "" ] && [ "$MAPIN" = "" ]; then
-   echo ""$normal"
-
-$normal
-Namdinator sets up a MDFF simulation and runs it via NAMD2 to perform a MDFF flexiable fit of the input PDB file into the input density map.
-
-To use Namdinator you $bold have $normal to supply NAmdinator with a standard format PDB file using the -p flag, a densit map file (mrc/map/ccp4 etc) using the -m flag and the resolution of the input map, using the -r flag. If you want to do a default phenix.real space refinement (very much recommended) of the output PDB file (and the input map) from the MDFF simulation you also need to include the -x flag.
+   echo "$normal
+Namdinator sets up and runs a MDFF simulation using VMD and NAMD2. MDFF is basically a flexiable fittting of the input PDB file into the input density map, inside a molecular dynamics simulation using the density as a steering force for the fitting procedure.
+To use Namdinator the minimum you  $bold have $normal to supply Namdinator with is: a standard formatted PDB file using the -p flag (e.g. -p fit.pdb), a density map file (mrc/map/ccp4 etc) using the -m flag (e.g. -m map.mrc) and the resolution of the input map in Å using the -r flag (e.g. -r 4.4). Optionally, but highly recommended, If you can add a default phenix.real space refinement step to the output PDB file from the MDFF simulation, using the -x flag (no value needed).
 $normal.
-
 Examples:
-
-To run Namdinator without phenix.real_space refinement:
+To run a minimal Namdinator run:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_map
+./Namdinator.sh -p input.pdb -m input.map -r 4.4
 $normal
-To run Namdinator with phenix.real_space refinement:
+To run Namdinator with phenix.real_space refinement added:
 $bold
-./Namdinator.sh -p input.pdb -m input.map -r resolution_of_input_map -x
+./Namdinator.sh -p input.pdb -m input.map -r 4.4 -x
 $normal
-To obtain additonal information about Namdinator and  the different flags you can use in Namdinator:
+To read about Namdinator and all of the additional flags you can use to customize Namdinator further you simply have to type:
 $bold
-./Namdinator.sh -help
+./Namdinator.sh -h
 $normal
-
-Instead of tinkering with the script, you can change some of the standard parameters that Namdinator utilizes, directly from the commandline using vairous flags. Lets say you want to run the simulation for longer than the default length of 20.000, you simply include the flag -s followed by the new value e.g. 150.000.
-
-All of Namdinator's flags are listed below:
-
+Instead of editing the Namdinator script, you can simply change many of the standard parameters directly from the commandline using the below flags.
       -h Help
-
       -p Input PDB file
-
       -m Input map file (.mrc/.ccp4/.map/.situs)
-
+      -r Resolution of the input map. Used for only CCC calculations and for phenix.real space refinement (if applicable).
       -e Number of Minimization steps (default is 2000)
-
-      -g G-scale value (default: 0.3)
-
-      -b B-factor value to be applied all atoms in the output PDB file (default: 20).
-
-      -t Inital temperature (default: 300 kelvin)
-
-      -f Final temperature (default: 300 kelvin)
-
-      -s Length of MDFF simulation (default 100000 NB. 1000 = 1 ps)
-
-      -x If set performs  a default phenix real space refinement ru on the output PDB file from the simulation. Needs the -r flag to be set to function. Does not work with HETATMS and .sit density maps unfortuneately.
-
-      -r Resolution of the input map. Used for CCC calculations and for phenix.real space refinement.
-
-      -l If this flag is set, all present HETATM will be allowed to stay in the input PDB file and used throughout the simulation. Does not work well with the -x flag.
-
-      -n Number or processors used (default: number of processors divided by number of threads)
-
-      -c Number or macro cycles to run during phenix.real_space refine (default is 5)
+      -g G-scale value (default: 0.3): The force of which the density is able to pull the model with. Too high and you risk the simulations breaks due to too high velocity of some of the atoms. Typical values to test are between 0.01-10.
+      -b B-factor value to be applied to all of the atoms in the output PDB file(s) (default: 20).
+      -t Inital temperature (default: 300 kelvin): the temperature the simulation starts at. 
+      -f final temperature (default: 300 kelvin) the target temp the simulation is either cooled or heated to during the simulation. If Initial and Final temp is identical no cooling or heating is performed.
+      -s Number of steps the simulation runs (default 20000). Should be increased (typical values: 20000-500000) if large conformational changes are needed to fit a model, in order to enable the model to reach a convergence.
+      -x When set performs a default phenix real space refinement run on the output PDB file(s) from the simulation. 
+      -l If this flag is set, all HETATM in the input PDB file, will be not be removed and hence be included in the autoPSF step and, if autoPSF does not fail in the simulation as well. Does not work well with the -x flag!!!
+      -n Number or processors used (default: number of processors on the workstation Namdinator is run from, divided by number of threads)
+      -c Number or macro cycles to run during phenix.real_space refine (default is 5).
+      -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
 "
-    exit 1
+sleep 0.3
+   exit 1
 
 elif [ "$PDBEXT" != "pdb" ]; then
  echo "You have to input a .pdb file!"
@@ -425,7 +474,6 @@ fi
 ############################################################################
 
 echo -n "Removing any CONECT/SHEET/HELIX records that may be present in $PDBFILE, as they can make Namdinator crash.
-
 "
 
 if [ "$LIGANDS" = "1" ]; then
@@ -445,20 +493,17 @@ PDB2="$PDB1"_altered
 
 REST=""$PDB2"-extrabonds.txt "$PDB2"-extrabonds-cis.txt "$PDB2"-extrabonds-chi.txt"
 
-PARAMS=""${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
+#PARAMS=""${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
+PARAMS=""${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
 
 
 ############################################################################
 ################# Generating NAMD files with MDFF setup#####################
 ############################################################################
 echo -n "Running AutoPSF on "$PDB2".pdb
-
 Generating the following restraint files for "$PDB2.pdb":
-
 "$REST"
-
 Generating simulation files for NAMD2
-
 "
 cat<<EOF > "MDFF_setup.tcl"
 package require ssrestraints
@@ -473,8 +518,7 @@ chirality restrain -o $PDB2-extrabonds-chi.txt
 ssrestraints -psf ${PDB2}_autopsf.psf -pdb ${PDB2}_autopsf.pdb -o ${PDB2}-extrabonds.txt -hbonds
 mdff gridpdb -psf ${PDB2}_autopsf.psf -pdb ${PDB2}_autopsf.pdb -o ${PDB2}-grid.pdb
 mdff griddx -i $MAPIN -o $MAPNAME-grid.dx
-mdff setup -o simulation -psf ${PDB2}_autopsf.psf -pdb ${PDB2}_autopsf.pdb -griddx $MAPNAME-grid.dx -gridpdb $PDB2-grid.pdb -extrab {$REST} -parfiles {$PARAMS} -temp $ITEMP -ftemp $FTEMP -gscale $GS -numsteps $NUMS -minsteps $EM
-
+mdff setup -o simulation -psf ${PDB2}_autopsf.psf -pdb ${PDB2}_autopsf.pdb -griddx $MAPNAME-grid.dx -gridpdb $PDB2-grid.pdb -extrab {$REST} -parfiles {$PARAMS} -temp $ITEMP -ftemp $FTEMP -gscale $GS -numsteps $NUMS -minsteps $EM $IMPLICIT
 EOF
 
 vmd -dispdev text -eofexit <MDFF_setup.tcl> MDFF.log &
@@ -496,8 +540,6 @@ done
 echo -n "
 Trying to module load the CUDA accelerated version of NAMD (namd-cuda-2.12).
 "
-module load namd-cuda-2.12
-
     echo -n "Proceeding with running NAMD2
 "
     namd2 +p"$PROCS" simulation-step1.namd | tee NAMD2_step1.log &
@@ -515,14 +557,12 @@ module load namd-cuda-2.12
 if [[ ! -f ${PDB2}_autopsf.psf ]] ; then
        echo -n "
 The file "$PDB2"_autopsf.psf does not exsist!
-
 "
        grep "Warning: This molecule contains" MDFF.log
        grep "Warning: I found some undefined atom types" MDFF.log
 
        echo -n "
 Terminating Namdinator!
-
 "
        exit 1
 fi
@@ -534,9 +574,7 @@ fi
 if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.log; then
 
     echo -n '
-
 NAMD2 have unfortunately stopped prematurely, see the below Error message for further details or consult the NAMD2 log file:
-
 '
     grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.log;
 
@@ -547,7 +585,6 @@ fi
 ##################Creating a VMD visualizing .tcl scrip#####################
 ############################################################################
 cat <<EOF > visualize_trj.tcl
-
 color Display Background white
 mol new $MAPIN
 mol modcolor 0 top colorID 2
@@ -566,7 +603,6 @@ EOF
 ###########Export last frame out from the last trajectory as a PDB##########
 ############################################################################
 cat<<EOF > writepdb.tcl
-
 mol new ${PDB2}_autopsf.pdb
 mol addfile ${PDB2}_autopsf.psf
 mol addfile simulation-step1.coor
@@ -644,9 +680,7 @@ mv -f last_frame_nucleo.pdb last_frame.pdb
 if [ "$PHENIXRS" = "1" ]; then
 
 cat <<EOF > phenix_rs.sh
-
 phenix.real_space_refine last_frame.pdb $MAPIN resolution=$RES macro_cycles=$MC
-
 EOF
 
 sh phenix_rs.sh | tee phenix_rsr.log &
@@ -665,28 +699,21 @@ fi
 if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > CCC_check.tcl
-
 package require mdff
 package require multiplot
-
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
-
 mol new ${PDB2}.pdb
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
-
 mol new last_frame.pdb
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
-
 mol new last_frame_rsr.pdb
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
-
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
-
 set incre [ expr $NUMS/1000]
 for {set i 0} {\$i < \$incre} {incr i 1} { 
          [atomselect top all frame \$i] writepdb frame\$i.pdb 
@@ -706,25 +733,19 @@ else
 
 
 cat<<EOF > CCC_check.tcl
-
 package require mdff
 package require multiplot
-
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
-
 mol new ${PDB2}_autopsf.pdb
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
-
 mol new last_frame.pdb
 mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
-
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
-
 set incre [ expr $NUMS/1000]
 for {set i 0} {\$i < \$incre} {incr i 1} { 
          [atomselect top all frame \$i] writepdb frame\$i.pdb 
@@ -767,32 +788,24 @@ EOF
 ############################################################################
 cat<<EOF > clash_allframes.sh
 #!/bin/bash
-
 for i in \$(ls -1v frame*.pdb); do
-
     f=\$(echo \$i| cut -d\. -f1)
     
     sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ 20\.00\ /g" \$i > \$f-bf.pdb
 done
-
 NUM=0
 for i in \$(ls -1v frame*-bf.pdb); do
     NUM=\$(( \$NUM + 1 ))
     f=\$(echo \$i| cut -d\. -f1)
-
     while [ \$(pgrep -f clashscore.py | wc -l) -ge $PROCS ]; do
     sleep 1
     done
-
     phenix.clashscore \$i > \$f.log & pids[\${NUM}]=\$!
 done
-
 for pid in \${pids[*]}; do
     wait \$pid     
 done
-
 ls -1v frame*-bf.log | xargs -d '\n' grep "clashscore" | sed -e "s/:clashscore =//g" | sed -e 's/-bf.log/.pdb/g' > all_frames_clash.txt
-
 EOF
 
 chmod +x clash_allframes.sh
@@ -813,7 +826,6 @@ EOF
 
 
 cat<<EOF > gnuplot_clash_png.sh
-
 set autoscale
 set term png
 set xtics rotate
@@ -831,19 +843,16 @@ if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > cispeptides.tcl
 package require cispeptide
-
 mol new ${PDB2}.pdb
 set out1 [open ${PDB2}_cis.log w]
 puts \$out1 [cispeptide check -mol top]
 close \$out1
 cispeptide reset
-
 mol new last_frame.pdb
 set out2 [open last_frame_cis.log w]
 puts \$out2 [cispeptide check -mol top]
 close \$out2
 cispeptide reset
-
 mol new last_frame_rsr.pdb
 set out3 [open last_frame_rsr_cis.log w]
 puts \$out3 [cispeptide check -mol top]
@@ -859,19 +868,16 @@ echo -n "Identifying Cispeptides in input PDB file and output PDB files
  else
 cat<<EOF > cispeptides.tcl
 package require cispeptide
-
 mol new ${PDB2}.pdb
 set out1 [open ${PDB2}_cis.log w]
 puts \$out1 [cispeptide check -mol top]
 close \$out1
 cispeptide reset
-
 mol new last_frame.pdb
 set out2 [open last_frame_cis.log w]
 puts \$out2 [cispeptide check -mol top]
 close \$out2
 cispeptide reset
-
 EOF
 
 vmd -dispdev text eofexit<cispeptides.tcl> cispeptides.log & PID[7]=$!
@@ -887,17 +893,14 @@ echo -n "Identifying Cispeptides in input PDB file and output PDB file
 if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > molpro.sh
-
 phenix.ramalyze last_frame_rsr.pdb > rama_last_frame_rsr.log
 phenix.rotalyze last_frame_rsr.pdb > rota_last_frame_rsr.log
 phenix.cbetadev last_frame_rsr.pdb > cbeta_last_frame_rsr.log
 phenix.clashscore last_frame_rsr.pdb > clash_last_frame_rsr.log
-
 phenix.ramalyze last_frame.pdb > rama_last_frame.log
 phenix.rotalyze last_frame.pdb > rota_last_frame.log
 phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
 phenix.clashscore last_frame.pdb > clash_last_frame.log
-
 phenix.ramalyze $PDB2.pdb > rama_$PDB2.log
 phenix.rotalyze $PDB2.pdb > rota_$PDB2.log
 phenix.cbetadev $PDB2.pdb > cbeta_$PDB2.log
@@ -930,7 +933,6 @@ phenix.ramalyze last_frame.pdb > rama_last_frame.log
 phenix.rotalyze last_frame.pdb > rota_last_frame.log
 phenix.cbetadev last_frame.pdb > cbeta_last_frame.log
 phenix.clashscore last_frame.pdb > clash_last_frame.log
-
 phenix.ramalyze $PDB2.pdb > rama_$PDB2.log
 phenix.rotalyze $PDB2.pdb > rota_$PDB2.log
 phenix.cbetadev $PDB2.pdb > cbeta_$PDB2.log
@@ -957,7 +959,8 @@ Running Molprobity valdations tools on input and output PDB files
 ############################################################################
 ###############Rosetta score for whole model against map ###################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 LIMHIGH=4.0
 LIMLOW=3.5
@@ -966,78 +969,7 @@ RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
 LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
 LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
 
-if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
-
-cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
-
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-
-elif [ "$RES1" -lt "$LIM2" ]; then
-
-cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-elif [ "$RES1" -gt  "$LIM1" ]; then
-
-    cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
-
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-
-else
-    :
-fi
-
- else
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 LIMHIGH=4.0
 LIMLOW=3.5
@@ -1046,124 +978,167 @@ RES1=$(echo "($RES*100)" |bc | cut -d\. -f1)
 LIM1=$(echo "($LIMHIGH*100)" |bc | cut -d\. -f1)
 LIM2=$(echo "($LIMLOW*100)" |bc | cut -d\. -f1)
 
-if [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
-
-cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-
-
-elif [ "$RES1" -lt "$LIM2" ]; then
-
-cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-
-elif [ "$RES1" -gt  "$LIM1" ]; then
-
-    cat<<EOF > rosetta.sh
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
-
-EOF
-
-score_jd2.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
-
-score_jd2.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
-
-
-echo -n "
-Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
-"
-
-else
-    :
 fi
 
- fi
+
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -lt "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -gt  "$LIM1" ]; then
+
+    cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf_rsr.sc > lf_rsr_rosetta.log & PID[22]=$!
+
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+fi
+
+
+if [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -le  "$LIM1" ] && [ "$RES1" -ge "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 2.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -lt "$LIM2" ]; then
+
+cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:sliding_window_wt 4.0 -edensity:sliding_window 3 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] && [ "$RES1" -gt  "$LIM1" ]; then
+
+    cat<<EOF > rosetta.sh
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log
+EOF
+
+score_jd2.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile ${PDB2}.sc > ${PDB2}_rosetta.log & PID[20]=$!
+
+score_jd2.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res -edensity::mapfile ${MAPIN} -edensity::mapreso ${RES} -edensity:fastdens_wt 20.0 -edensity::cryoem_scatterers -crystal_refine -out:file:scorefile lf.sc > lf_rosetta.log & PID[21]=$!
+
+
+echo -n "
+Calculating Rosetta scores for input and output PDB files. The lower the score, the more stable the structure is likely to be for a given protein.
+"
+
+fi
  
 ############################################################################
 ###############Rosetta score for individual residues #######################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
+
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
  
 cat<<EOF > rosetta_resi.sh
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res > ${PDB2}_perRes.log
+per_residue_energies.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res > ${PDB2}_perRes.log
 sort -k21 -n -r default.out > ${PDB2}_perRes.sc
 rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
 sort -k21 -n -r default.out > lf_perRes.sc
 rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res > lf_rsr_perRes.log 
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -ignore_unrecognized_res > lf_rsr_perRes.log 
 sort -k21 -n -r default.out > lf_rsr_perRes.sc
 rm default.out
-
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -out:file:silent ${PDB2}.out -ignore_unrecognized_res > ${PDB2}_perRes.log & PID[23]=$!
+per_residue_energies.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -out:file:silent ${PDB2}.out -ignore_unrecognized_res > ${PDB2}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out -ignore_unrecognized_res > lf_rsr_perRes.log & PID[25]=$! 
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame_rsr.pdb -out:file:silent lfr.out -ignore_unrecognized_res > lf_rsr_perRes.log & PID[25]=$! 
 
 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
 
- else
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 cat<<EOF > rosetta_resi.sh
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -ignore_unrecognized_res > ${PDB2}_perRes.log
+per_residue_energies.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -ignore_unrecognized_res > ${PDB2}_perRes.log
 sort -k21 -n -r default.out > ${PDB2}_perRes.sc
 rm default.out
-
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame.pdb -ignore_unrecognized_res > lf_perRes.log
 sort -k21 -n -r default.out > lf_perRes.sc
 rm default.out
-
 EOF
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s ${PDB2}.pdb -out:file:silent ${PDB2}.out -ignore_unrecognized_res > ${PDB2}_perRes.log & PID[23]=$!
+per_residue_energies.${ROSETTA_TAIL} -in:file:s ${PDB2}.pdb -out:file:silent ${PDB2}.out -ignore_unrecognized_res > ${PDB2}_perRes.log & PID[23]=$!
 
-per_residue_energies.mpi.linuxgccrelease -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
+per_residue_energies.${ROSETTA_TAIL} -in:file:s last_frame.pdb -out:file:silent lf.out -ignore_unrecognized_res > lf_perRes.log & PID[24]=$!
 
 
 echo -n "
 Calculating Rosetta scores for individual residues in input and output PDB files. Single residues that scores significantly higher could indicate they are involved in clashes.
 "
-     fi
+fi
 ############################################################################
 ######################## wait for all PIDS to finish #######################
 ############################################################################
@@ -1205,42 +1180,27 @@ cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
 ###################### extracting Rosetta Scores ###########################
 ############################################################################
 
-if [ "$PHENIXRS" = "1" ]; then
-
-cat<<EOF > sort_perResi_Score.sh
-
-sort -k21 -n -r ${PDB2}.out > ${PDB2}_perRes.sc
-rm ${PDB2}.out
-sort -k21 -n -r lf.out > lf_perRes.sc
-rm lf.out
-sort -k21 -n -r lfr.out > lf_rsr_perRes.sc
-rm lfr.out
-
-EOF
-
-sh sort_perResi_Score.sh
-
-awk 'NR<=10' ${PDB2}_perRes.sc | awk '{print $3, $21}' > pr.sc
-awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
-awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $3, $21}' > pr3.sc
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
+        
+    awk '{print $3, $(NF-1)}' ${PDB2}.out | sort -nr -k2 > ${PDB2}_perRes.sc
+    awk '{print $3, $(NF-1)}' lf.out | sort -nr -k2 > lf_perRes.sc
+    awk '{print $3, $(NF-1)}' lfr.out | sort -nr -k2  > lf_rsr_perRes.sc
+    rm ${PDB2}.out
+    rm lf.out
+    rm lfr.out
+    awk 'NR<=10' ${PDB2}_perRes.sc | awk '{print $1, $2}' > pr.sc
+    awk 'NR<=10' lf_perRes.sc | awk '{print $1, $2}' > pr2.sc
+    awk 'NR<=10' lf_rsr_perRes.sc | awk '{print $1, $2}' > pr3.sc
 
 
-else
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then 
 
-cat<<EOF > sort_perResi_Score.sh
-
-sort -k21 -n -r ${PDB2}.out > ${PDB2}_perRes.sc
-rm ${PDB2}.out
-sort -k21 -n -r lf.out > lf_perRes.sc
-rm lf.out
-
-EOF
-
-sh sort_perResi_Score.sh
-
-awk 'NR<=10' ${PDB2}_perRes.sc | awk '{print $3, $21}' > pr.sc
-awk 'NR<=10' lf_perRes.sc | awk '{print $3, $21}' > pr2.sc
-
+    awk '{print $3, $(NF-1)}' ${PDB2}.out | sort -nr -k2 > ${PDB2}_perRes.sc
+    awk '{print $3, $(NF-1)}' lf.out | sort -nr -k2 > lf_perRes.sc
+    rm ${PDB2}.out
+    rm lf.out
+    awk 'NR<=10' ${PDB2}_perRes.sc | awk '{print $1, $2}' > pr.sc
+    awk 'NR<=10' lf_perRes.sc | awk '{print $1, $2}' > pr2.sc
 
 fi
 
@@ -1248,8 +1208,8 @@ fi
 ############################################################################
 ###############Displaying all the validation metrics #######################
 ############################################################################
-if [ "$PHENIXRS" = "1" ]; then
 
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1293,7 +1253,7 @@ INP=INP
 LF=LF
 LFR=LFR
 
- else
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then 
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1326,9 +1286,90 @@ INP=INP
 LF=LF
 LFR=LFR
 
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
+
+CCC1=$(awk '{print $2}' ccc_input.txt)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+     
+claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
+claLF=$(awk 'END {print $NF}' clash_last_frame.log)
+claLFR=$(awk 'END {print $NF}' clash_last_frame_rsr.log)
+
+FAVINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $2}' | head -n1)
+FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
+FAVLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $2}' | head -n1)
+
+ALWINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $4}' | head -n1)
+ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
+ALWLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $4}' | head -n1)
+
+OUTINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $6}' | head -n1)
+OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
+OUTLFR=$(grep SUMMARY rama_last_frame_rsr.log | awk '{print $6}' | head -n1)
+
+CBEINP=$(grep "SUMMARY" cbeta_"$PDB2".log | awk '{print $2}')
+CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
+CBELFR=$(grep "SUMMARY" cbeta_last_frame_rsr.log | awk '{print $2}')
+
+ROTINP=$(grep "SUMMARY" rota_"$PDB2".log | awk '{print $2}')
+ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
+ROTLFR=$(grep "SUMMARY" rota_last_frame_rsr.log | awk '{print $2}')
+
+CISINP=$(awk '{print $1}' ${PDB2}_cis.log)
+CISLF=$(awk '{print $1}' last_frame_cis.log)
+CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
+
+INP=INP
+LF=LF
+LFR=LFR
+  
+    
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
+
+CCC1=$(awk '{print $2}' ccc_input.txt)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+     
+claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
+claLF=$(awk 'END {print $NF}' clash_last_frame.log)
+
+FAVINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $2}' | head -n1)
+FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
+
+ALWINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $4}' | head -n1)
+ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
+
+OUTINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $6}' | head -n1)
+OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
+
+CBEINP=$(grep "SUMMARY" cbeta_"$PDB2".log | awk '{print $2}')
+CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
+
+ROTINP=$(grep "SUMMARY" rota_"$PDB2".log | awk '{print $2}')
+ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
+
+CISINP=$(awk '{print $1}' ${PDB2}_cis.log)
+CISLF=$(awk '{print $1}' last_frame_cis.log)
+
+INP=INP
+LF=LF
+LFR=LFR
 
 fi
 
+
+if [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
+
+ROSINP=n/a
+ROSLF=n/a
+
+elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
+
+ROSINP=n/a
+ROSLF=n/a
+ROSLFR=n/a
+
+fi
 
 echo -n '
 '$bold'
@@ -1336,7 +1377,6 @@ To visualize the simulation in VMD simply copy/paste this command: vmd -dispdev 
 '
 echo -n "
 Legend to the below table:
-
 INP = "$PDBIN" > This is the input PDB file.
 LF = last_frame.pdb    > This is the output PDB file from the MD simulation (last frame of the trajectory).
 LFR = last_frame_rsr.pdb  > Output PDB file from the Phenix real space refinement run on last_frame.pdb.
@@ -1359,26 +1399,42 @@ printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${R
 printf "+---------------------------------------------------------+\n"
 echo ""
 
-
-if [ "$PHENIXRS" = "1" ]; then
+if [ -f lf_perRes.log ] ; then
     
+    SCORFUNC="$(grep -o -P '.{0,0}SCOREFUNCTION.{0,20}' lf_perRes.log)"
+
+fi
+
+if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
+
     pr -mts pr.sc pr2.sc pr3.sc > perRes_scores_all.sc
 
     sed -i '1s/^/ Resid_Inp Score_Inp Resid_LF Score_LF Resid_LFR Score_LFR\n/' perRes_scores_all.sc
+    echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
 
-else
+"
+    column -t perRes_scores_all.sc
+
+      echo -n "
+Calculated using the $SCORFUNC
+"
+
+  
+elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
+
     pr -mts pr.sc pr2.sc > perRes_scores_all.sc
 
     sed -i '1s/^/ Resid_inp Score_inp Resid_LF Score_LF\n/' perRes_scores_all.sc
+    echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
+
+"
+    column -t perRes_scores_all.sc
+
+      echo -n "
+Calculated using the $SCORFUNC
+"
 fi
 
-echo -n "Displaying the top 10 Rosetta scoring residues from each PDB file. Significantly higher score values for an indivdual residue may indicate it is involved in a clash:                                                                                                   
-
-"
-column -t perRes_scores_all.sc
-
-echo -n "                                                                                                                                                                                                                                                                         
-"
 
 ############################################################################
 ########################Light Clean up/organization#########################
@@ -1394,6 +1450,7 @@ mv $PDB2-extrabonds-cis.txt $DIREC1/ 2> /dev/null
 mv $PDB2-extrabonds-chi.txt $DIREC1/ 2> /dev/null
 mv $PDB2-extrabonds.txt $DIREC1/ 2> /dev/null
 mv $PDB2.pdb $DIREC1/ 2> /dev/null
+mv "$PDBNAME"_cryst.pdb $DIREC1/ 2> /dev/null
 mv ${PDB2}_autopsf*.* $DIREC1/ 2> /dev/null
 mv $PDB2-grid.pdb $DIREC1/ 2> /dev/null
 mv $MAPNAME-grid.dx $DIREC1/ 2> /dev/null
@@ -1470,4 +1527,4 @@ displaytime $ELAPSED_TIME
 ############## Removing most of the Spinner output from the log #############
 ############################################################################
 
-sed -i $'s/[^H^H^H^H^H^H[:print:]\t]//g' namdinator_stdout.log 
+sed -i $'s/[^H^H^H^H^H^H[:print:]\t]//g' namdinator_stdout.log
