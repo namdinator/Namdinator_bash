@@ -24,7 +24,9 @@ Example on how to run Namdinator with default settings plus including a phenix.r
 I have included a test set consisting of a PDB file (3JD8.pdb) and the corresponding EM map (emd_6644.mrc), to easily test if Namdinator is working etc. 
 
 ----------------------------------
-All the untested/work in progress versions are placed in their own folder, please dont use any of these as they have not been tested thoroughly. Only use the version that is placed in the main folder called Namdinator_current.sh.
+All the untested/work in progress versions are placed in their own folder, please dont use any of these as they have not been tested thoroughly. Only use the version that is placed in the main folder and called Namdinator_Generic.sh.
+
+The generic version is optimized for running on a more generic setup and not using the module loads or paths that are unique to  our local setup. CSB users should instead use Namdinator_current.sh version as that is made for our setup only.
 
 
 Notes on some the untested versions can be found below, but it is not updated often:
