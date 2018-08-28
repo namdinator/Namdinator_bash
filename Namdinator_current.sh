@@ -93,7 +93,7 @@ fi
 if [ "${ROSETTA_BIN}" != "" ]; then
     ROSETTA_BINDIR=${ROSETTA_BIN}
     PATH=${ROSETTA_BINDIR}:${PATH}
-    ROSETTA_TAIL="$(ls ${ROSETTA_BINDIR} | grep "score_jd2." | cut -d\. -f2- )"
+    ROSETTA_TAIL="$(ls -rt ${ROSETTA_BINDIR} | grep "score_jd2." | tail -n 1 | cut -d\. -f2- )"
 fi
 
 if [ "${PHENIX}" != "" ]; then
