@@ -417,12 +417,15 @@ fi
 ################# Testing if input map is in P1 spacegroup #################
 ############################################################################
 
-test="$(phenix.map_to_structure_factors d_min=$RES $MAPIN 2>&1| grep 'Sorry: Input map space group')"
-INPUT_SPG=$(echo $test|awk '{print $6}')
+test=$(phenix.show_map_info $MAPIN | grep "space group number:")
 
-if [ "$test" != "" ]; then
-    echo 'Spacegroup of '$MAPIN' is '${INPUT_SPG}', but must be P1'
+INPUT_SPG=$(echo $test | awk '{print $4}')
+
+if [ "$INPUT_SPG" \> "1" ]; then
+    echo 'Space group of '$MAPIN' is '${INPUT_SPG}', but must be 1 (P1)'
     exit 1
+else
+    echo 'Space group of '$MAPIN' is 1 (P1)'
 fi     
 
 
