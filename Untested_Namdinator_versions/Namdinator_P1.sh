@@ -56,10 +56,8 @@ BF=20
 # check if vmd is in PATH and set VMDMASTERDIR
 if [ "$(which vmd)" != "" ]; then
     if [ "${VMDMASTER}" = "" ]; then
-	echo 1
 	VMDMASTERDIR=$(grep "^set defaultvmddir" $(which vmd) | cut -d\= -f2- | sed 's/\"//g')
     else
-	echo 2
 	VMDMASTERDIR=${VMDMASTER}
     fi
 else
