@@ -382,7 +382,7 @@ fi
 if [ "$RES" = "" ]; then
     echo "You must input the resolution of the map, using the -r flag!"
     exit 1
-    fi
+fi
 
 
 if [ "$PHENIXRS" = "1" ]; then
@@ -493,11 +493,11 @@ echo -n "Removing any CONECT/SHEET/HELIX records that may be present in $PDBFILE
 if [ "$LIGANDS" = "1" ]; then
 
 
-    grep "HETATM\|^TER\|END\|^CRYST1\|^ATOM" $PDB1.pdb > ${PDB1}_altered.pdb
+    grep "HETATM\|^TER\|END\|^CRYST1\|^ATOM" $PDBIN > ${PDB1}_altered.pdb
     
  else
 
-    grep "^TER\|END\|^CRYST1\|^ATOM" $PDB1.pdb > ${PDB1}_altered.pdb
+    grep "^TER\|END\|^CRYST1\|^ATOM" $PDBIN > ${PDB1}_altered.pdb
      
 fi
 
@@ -710,8 +710,28 @@ fi
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
+#phenix.reduce -Trim ${PDB2}_autopsf.pdb > trimmed.pdb -Quiet
+#rm trimmmed.pdb
+
 if [ "$PHENIXRS" = "1" ]; then
 
+cat<<EOF > CC_map_files.sh
+
+phenix.map_model_cc $PDB2.pdb $MAPIN resolution=$RES > CC_input.log
+phenix.map_model_cc last_frame.pdb $MAPIN resolution=$RES > CC_lf.log
+phenix.map_model_cc last_frame_rsr.pdb $MAPIN resolution=$RES > CC_rsr.log
+
+
+EOF
+
+
+echo -n "
+Calculating Phenix CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+    
 cat<<EOF > CCC_check.tcl
 package require mdff
 package require multiplot
@@ -745,6 +765,22 @@ spinner $!
 
 else
 
+cat<<EOF > CC_map_files.sh
+
+phenix.map_model_cc $PDB2.pdb $MAPIN resolution=$RES > CC_input.log
+phenix.map_model_cc last_frame.pdb $MAPIN resolution=$RES > CC_lf.log
+
+EOF
+
+
+echo -n "
+Calculating Phenix CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+
+    
 
 cat<<EOF > CCC_check.tcl
 package require mdff
@@ -1191,7 +1227,7 @@ Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
 
 ############################################################################
-###################### extracting Rosetta Scores ###########################
+################ extracting Per Residue Rosetta Scores #####################
 ############################################################################
 
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
@@ -1225,6 +1261,11 @@ fi
 
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
+
+PCCC1=$(grep "masked):" CC_input.log | awk '{print $4}')
+PCCC2=$(grep "masked):" CC_lf.log | awk '{print $4}')    
+PCCC3=$(grep "masked):" CC_rsr.log | awk '{print $4}')
+    
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
 CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
@@ -1257,7 +1298,6 @@ CISINP=$(awk '{print $1}' ${PDB2}_cis.log)
 CISLF=$(awk '{print $1}' last_frame_cis.log)
 CISLFR=$(awk '{print $1}' last_frame_rsr_cis.log)
 
-
 ROSINP=$(awk 'NR==3' ${PDB2}.sc | awk '{print $2}')
 ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
 ROSLFR=$(awk 'NR==3' lf_rsr.sc | awk '{print $2}')
@@ -1269,38 +1309,56 @@ LFR=LFR
 
 elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then 
 
+
+PCCC1=$(grep "masked):" CC_input.log | awk '{print $4}')
+PCCC2=$(grep "masked):" CC_lf.log | awk '{print $4}')    
+PCCC3="n/a"
+
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
+claLFR="n/a"
 
 FAVINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $2}' | head -n1)
 FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
+FAVLFR="n/a"
 
 ALWINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $4}' | head -n1)
 ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
+ALWLFR="n/a"
 
 OUTINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $6}' | head -n1)
 OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
+OUTLFR="n/a"
 
 CBEINP=$(grep "SUMMARY" cbeta_"$PDB2".log | awk '{print $2}')
 CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
+CBELFR="n/a"
 
 ROTINP=$(grep "SUMMARY" rota_"$PDB2".log | awk '{print $2}')
 ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
+ROTLFR="n/a"
 
 CISINP=$(awk '{print $1}' ${PDB2}_cis.log)
 CISLF=$(awk '{print $1}' last_frame_cis.log)
+CISLFR="n/a"
 
 ROSINP=$(awk 'NR==3' ${PDB2}.sc | awk '{print $2}')
 ROSLF=$(awk 'NR==3' lf.sc | awk '{print $2}')
+ROSLFR="n/a"
 
 INP=INP
 LF=LF
 LFR=LFR
 
 elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
+
+PCCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
+PCCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
+PCCC3=$(grep "CC_volume" CC_rsr.log | awk '{print $2}')
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1341,29 +1399,41 @@ LFR=LFR
     
 elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
 
+PCCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
+PCCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
+PCCC3="n/a"
+    
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
+claLFR="n/a"
 
 FAVINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $2}' | head -n1)
 FAVLF=$(grep SUMMARY rama_last_frame.log | awk '{print $2}' | head -n1)
+FAVLFR="n/a"
 
 ALWINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $4}' | head -n1)
 ALWLF=$(grep SUMMARY rama_last_frame.log | awk '{print $4}' | head -n1)
+ALWLFR="n/a"
 
 OUTINP=$(grep SUMMARY rama_"$PDB2".log | awk '{print $6}' | head -n1)
 OUTLF=$(grep SUMMARY rama_last_frame.log | awk '{print $6}' | head -n1)
+OUTLFR="n/a"
 
 CBEINP=$(grep "SUMMARY" cbeta_"$PDB2".log | awk '{print $2}')
 CBELF=$(grep "SUMMARY" cbeta_last_frame.log | awk '{print $2}')
+CBELFR="n/a"
 
 ROTINP=$(grep "SUMMARY" rota_"$PDB2".log | awk '{print $2}')
 ROTLF=$(grep "SUMMARY" rota_last_frame.log | awk '{print $2}')
+ROTLFR="n/a"
 
 CISINP=$(awk '{print $1}' ${PDB2}_cis.log)
 CISLF=$(awk '{print $1}' last_frame_cis.log)
+CISLFR="n/a"
 
 INP=INP
 LF=LF
@@ -1374,14 +1444,14 @@ fi
 
 if [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
 
-ROSINP=n/a
-ROSLF=n/a
+ROSINP="n/a"
+ROSLF="n/a"
 
 elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
 
-ROSINP=n/a
-ROSLF=n/a
-ROSLFR=n/a
+ROSINP="n/a"
+ROSLF="n/a"
+ROSLFR="n/a"
 
 fi
 
@@ -1392,8 +1462,8 @@ To visualize the simulation in VMD simply copy/paste this command: vmd -dispdev 
 echo -n "
 Legend to the below table:
 INP = "$PDBIN" > This is the input PDB file.
-LF = last_frame.pdb    > This is the output PDB file from the MD simulation (last frame of the trajectory).
-LFR = last_frame_rsr.pdb  > Output PDB file from the Phenix real space refinement run on last_frame.pdb.
+LF = last_frame.pdb > This is the output PDB file from the MD simulation (last frame of the trajectory).
+LFR = last_frame_rsr.pdb > Output PDB file from the Phenix real space refinement run on last_frame.pdb.
 CCC = Cross correlation coefficient between "$MAPFILE" and either of the above PDB files.
 "
 
@@ -1407,7 +1477,8 @@ printf "|  Allowed :       | %10s | %10s | %10s |          \n" $ALWINP $ALWLF $A
 printf "|  Outliers:       | %10s | %10s | %10s |          \n" $OUTINP $OUTLF $OUTLFR
 printf "|  C-beta dev:     | %10s | %10s | %10s |          \n" $CBEINP $CBELF $CBELFR
 printf "|  Rota-outliers:  | %10s | %10s | %10s |          \n" $ROTINP $ROTLF $ROTLFR
-printf "|  CCC:            | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7}
+printf "|  VMD CCC:        | %10s | %10s | %10s |          \n" ${CCC1:0:7} ${CCC2:0:7} ${CCC3:0:7}
+printf "|  Phenix FSC:     | %10s | %10s | %10s |          \n" ${PCCC1:0:7} ${PCCC2:0:7} ${PCCC3:0:7}
 printf "|  Cis-Peptides:   | %10s | %10s | %10s |          \n" $CISINP $CISLF $CISLFR
 printf "|  Rosetta score:  | %10s | %10s | %10s |          \n" ${ROSINP:0:7} ${ROSLF:0:7} ${ROSLFR:0:7}
 printf "+---------------------------------------------------------+\n"
@@ -1491,8 +1562,8 @@ mv sort_perResi_Score.sh $DIREC3/ 2> /dev/null
 mv *.sc $DIREC2/ 2> /dev/null
 mv *.geo $DIREC2/ 2> /dev/null
 mv $DIREC2/namdinator_stdout.log . 2> /dev/null
+mv CC_map_files.sh $DIREC3/ 2> /dev/null
 EOF
-
 
 if [ -f *.bpseq ] ; then
 
