@@ -471,8 +471,7 @@ grep -E '^CRYST1|^ORIGX[1-3]|^SCALE[1-3]' $PDBIN > header.txt
 #################### Renaming O1 atoms in GLU and ASP ######################
 ############################################################################
 
-sed -e 's/O1\- GLU/OE1 GLU/g; s/O1\- ASP/OD1 ASP/g' $PDBIN > $PDB1-tmp.pdb
-
+sed -e 's/O1\-/O  /g; s/O1\-/O  /g' $PDBIN > $PDB1-tmp.pdb
 
 #############################################################################
 ############# Removing all non-ATOM records from input PDB #################
@@ -676,8 +675,10 @@ Renaming all GUA/URA/ADE/CYT/THY nucleotides, if present, back to single letter 
 '
 sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_frame_nohydro.pdb > last_frame_nucleo.pdb
 
+sed -i '/^CRYST1/d' last_frame_nucleo.pdb
 
 mv -f last_frame_nucleo.pdb last_frame.pdb
+
 
 ############################################################################
 ######################Phenix real space refinement #########################
@@ -693,9 +694,12 @@ sh phenix_rs.sh | tee phenix_rsr.log &
 
 spinner $!
 
-mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
+sed -i '/^CRYST1/d; /^SCALE[1-3]/d' last_frame_real_space_refined.pdb
+
+mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb 
 
 fi
+
 
 
 ############################################################################
@@ -1246,6 +1250,14 @@ elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 fi
 
+############################################################################
+##########Restoring the original header to out PDBS ########################
+############################################################################
+
+
+cat header.txt last_frame.pdb > tmp.pdb && mv tmp.pdb last_frame.pdb
+
+cat header.txt last_frame_rsr.pdb > tmp.pdb && mv tmp.pdb last_frame_rsr.pdb
 
 ############################################################################
 ###############Displaying all the validation metrics #######################
@@ -1254,9 +1266,9 @@ fi
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
 
-PCCC1=$(grep "masked):" CC_input.log | awk '{print $4}')
-PCCC2=$(grep "masked):" CC_lf.log | awk '{print $4}')    
-PCCC3=$(grep "masked):" CC_rsr.log | awk '{print $4}')
+PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
+PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
+PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
     
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1556,6 +1568,7 @@ mv *.geo $DIREC2/ 2> /dev/null
 mv $DIREC2/namdinator_stdout.log . 2> /dev/null
 mv CC_map_files.sh $DIREC3/ 2> /dev/null
 mv $PDB1-tmp.pdb $DIREC1/ 2> /dev/null
+mv header.txt $DIREC1/ 2> /dev/null
 EOF
 
 if [ -f *.bpseq ] ; then
