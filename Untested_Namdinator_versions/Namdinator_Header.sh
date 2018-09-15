@@ -387,6 +387,22 @@ fi
 
 PDB1="$PDBNAME"    
 
+############################################################################
+################## Convertinput map to mrc for VMD CHECK ##################
+############################################################################
+if [ "${MAPEXT}" = "map" ]; then
+    ln -s ${MAPIN} ${MAPNAME}.mrc
+    MAPVMD="${MAPNAME}.mrc"
+elif 
+[ "${MAPEXT}" = "ccp4" ]; then
+    MAPVMD="${MAPNAME}.mrc"
+else
+    MAPVMD="${MAPIN}"
+fi
+
+
+
+
 
 ############################################################################
 ################# Testing if input map is in P1 spacegroup #################
@@ -733,15 +749,15 @@ package require mdff
 package require multiplot
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
 mol new ${PDB2}.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
 mol new last_frame.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe.txt
 mol new last_frame_rsr.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 set incre [ expr $NUMS/1000]
@@ -783,13 +799,13 @@ package require mdff
 package require multiplot
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
 mol new ${PDB2}_autopsf.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
 mol new last_frame.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe.txt
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 set incre [ expr $NUMS/1000]
