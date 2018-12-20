@@ -668,14 +668,7 @@ while [ ! -f last_frame_his.pdb ] ; do
      sleep 1
 done
 
-echo -n '
-Applying the default or user input B-factor value to all atoms in last_frame.pdb
-'
-
-sed -e "s/\ [0,1]\.00\ \ 0.00\ /\ 1.00\ $BF\.00\ /g" last_frame_his.pdb > last_frame_bf.pdb
-
-
-phenix.reduce -Trim last_frame_bf.pdb > last_frame_nohydro.pdb -Quiet
+phenix.reduce -Trim last_frame_his.pdb > last_frame_nohydro.pdb -Quiet
 
 echo -n '
 Removing hydrogens from last_frame.pdb using Phenix.Reduce
@@ -693,6 +686,26 @@ sed -e 's/URA/U  /g; s/GUA/G  /g; s/CYT/C  /g; s/ADE/A  /g; s/THY/T  /g' last_fr
 
 mv -f last_frame_nucleo.pdb last_frame.pdb
 
+
+############################################################################
+###################### Phenix.rsr ADP on input model ####################
+############################################################################
+
+echo -n "
+Resetting B-factors and Running phenix.real_space_refine group ADP on "$PDBIN" and last_frame.pdb
+"
+
+phenix.pdbtools modify.adp.set_b_iso=$BF ${PDB2}.pdb output.file_name=${PDB2}_adp.pdb > ${PDB2}_adp.log
+phenix.pdbtools modify.adp.set_b_iso=$BF last_frame.pdb output.file_name=last_frame_bf.pdb > last_frame_bf.log
+phenix.real_space_refine refinement.run=adp resolution=${RES} ${PDB2}_adp.pdb ${MAPIN} output.file_name_prefix=${PDB2}_adp > input_rsr.log &
+phenix.real_space_refine refinement.run=adp resolution=${RES} last_frame_bf.pdb ${MAPIN} output.file_name_prefix=last_frame_adp > lf_rsr.log &
+
+spinner $!
+
+PDB4=last_frame_adp_real_space_refined.pdb
+PDB5=${PDB2}_adp_real_space_refined.pdb
+
+
 ############################################################################
 ######################Phenix real space refinement #########################
 ############################################################################
@@ -700,15 +713,22 @@ mv -f last_frame_nucleo.pdb last_frame.pdb
 if [ "$PHENIXRS" = "1" ]; then
 
 cat <<EOF > phenix_rs.sh
-phenix.real_space_refine last_frame.pdb $MAPIN resolution=$RES macro_cycles=$MC
+phenix.real_space_refine last_frame_bf.pdb $MAPIN resolution=$RES macro_cycles=$MC
 EOF
 
 sh phenix_rs.sh | tee phenix_rsr.log &
 
 spinner $!
 
-mv -f last_frame_real_space_refined.pdb last_frame_rsr.pdb
+sed -i '/^CRYST1/d; /^SCALE[1-3]/d' last_frame_bf_real_space_refined.pdb
 
+ if [ -f last_frame_bf_real_space_refined.pdb ]; then 
+   mv -f last_frame_bf_real_space_refined.pdb last_frame_rsr.pdb
+ else 
+    echo "last_frame_bf_real_space_refined.pdb is not there"
+    echo "failed" > done.txt
+    exit 1
+ fi
 fi
 
 
@@ -716,17 +736,21 @@ fi
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
-#phenix.reduce -Trim ${PDB2}_autopsf.pdb > trimmed.pdb -Quiet
-#rm trimmmed.pdb
+# vmd CCC check only accepts maps in mrc format
+if [ "${MAPEXT}" = "map" ]; then
+   ln -s ${MAPIN} ${MAPNAME}.mrc
+   MAPVMD="${MAPNAME}.mrc"
+ else
+   MAPVMD="${MAPIN}" 
+fi
+
 
 if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > CC_map_files.sh
-
-phenix.map_model_cc $PDB2.pdb $MAPIN resolution=$RES > CC_input.log
-phenix.map_model_cc last_frame.pdb $MAPIN resolution=$RES > CC_lf.log
-phenix.map_model_cc last_frame_rsr.pdb $MAPIN resolution=$RES > CC_rsr.log
-
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc last_frame_rsr.pdb $MAPIN resolution=$RES > CC_rsr.log 
 
 EOF
 
@@ -743,15 +767,15 @@ package require mdff
 package require multiplot
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
-mol new ${PDB2}.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
+mol new ${PDB5}
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
-mol new last_frame.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+mol new ${PDB4}
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe.txt
 mol new last_frame_rsr.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe_rsr.txt
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 set incre [ expr $NUMS/1000]
@@ -773,8 +797,8 @@ else
 
 cat<<EOF > CC_map_files.sh
 
-phenix.map_model_cc $PDB2.pdb $MAPIN resolution=$RES > CC_input.log
-phenix.map_model_cc last_frame.pdb $MAPIN resolution=$RES > CC_lf.log
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
 
 EOF
 
@@ -786,20 +810,18 @@ sh CC_map_files.sh > cc_map_files.log &
 
 spinner $!
 
-    
-
 cat<<EOF > CCC_check.tcl
 package require mdff
 package require multiplot
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd waitfor all
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_frames.txt
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_frames.txt
 multiplot reset
-mol new ${PDB2}_autopsf.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_input.txt
+mol new ${PDB5}
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_input.txt
 multiplot reset
-mol new last_frame.pdb
-mdff check -ccc -map $MAPIN -res $RES waitfor -1 -cccfile ccc_lastframe.txt
+mol new ${PDB4}
+mdff check -ccc -map $MAPVMD -res $RES waitfor -1 -cccfile ccc_lastframe.txt
 mol new ${PDB2}_autopsf.psf
 mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
 set incre [ expr $NUMS/1000]
@@ -817,7 +839,6 @@ vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 spinner $!
      
 fi
-
 ############################################################################
 ###############Generating Gnuplots of CCC from all frames###################
 ############################################################################
@@ -892,7 +913,7 @@ EOF
 
 
 ############################################################################
-################ Calculatiing  number of cispeptide ########################
+################ Calculating  number of cispeptide ########################
 ############################################################################
 
 if [ "$PHENIXRS" = "1" ]; then
@@ -1262,15 +1283,14 @@ fi
 
 
 ############################################################################
-###############Displaying all the validation metrics #######################
+###############Creating  all validation metrics #######################
 ############################################################################
 
 if [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then
 
-
-PCCC1=$(grep "masked):" CC_input.log | awk '{print $4}')
-PCCC2=$(grep "masked):" CC_lf.log | awk '{print $4}')    
-PCCC3=$(grep "masked):" CC_rsr.log | awk '{print $4}')
+PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
+PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
+PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
     
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1315,9 +1335,8 @@ LFR=LFR
 
 elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" != "" ]] ; then 
 
-
-PCCC1=$(grep "masked):" CC_input.log | awk '{print $4}')
-PCCC2=$(grep "masked):" CC_lf.log | awk '{print $4}')    
+PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
+PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
@@ -1362,9 +1381,9 @@ LFR=LFR
 
 elif [[ "$PHENIXRS" = "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then
 
-PCCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
-PCCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
-PCCC3=$(grep "CC_volume" CC_rsr.log | awk '{print $2}')
+PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
+PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
+PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
 
 CCC1=$(awk '{print $2}' ccc_input.txt)
 CCC2=$(awk '{print $2}' ccc_lastframe.txt)
@@ -1405,8 +1424,8 @@ LFR=LFR
     
 elif [[ "$PHENIXRS" != "1" ]] && [[ "${ROSETTA_BIN}" = "" ]] ; then 
 
-PCCC1=$(grep "CC_volume" CC_input.log | awk '{print $2}')
-PCCC2=$(grep "CC_volume" CC_lf.log | awk '{print $2}')    
+PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
+PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
     
 CCC1=$(awk '{print $2}' ccc_input.txt)
@@ -1461,6 +1480,26 @@ ROSLFR="n/a"
 
 fi
 
+
+##################################################################
+############CHECK IF TABLE VARIABLES ARE EMPTY####################
+##################################################################
+
+for i in PCCC1 PCCC2 PCCC3 CCC1 CCC2 CCC3 claINP claLF claLFR FAVINP FAVLF FAVLFR ALWINP ALWLF ALWLFR OUTINP OUTLF OUTLFR CBEINP CBELF CBELFR ROTINP ROTLF ROTLFR CISINP CISLF CISLFR ROSINP ROSLF ROSLFR; do
+   if [ -z "${!i}" ];then
+    typeset "${i}"="n/a"
+ fi
+done
+
+##################################################################
+################# Generating Validation table#####################
+##################################################################
+
+INP=INP
+LF=LF
+LFR=LFR
+
+
 echo -n '
 '$bold'
 To visualize the simulation in VMD simply copy/paste this command: vmd -dispdev win -e scripts/visualize_trj.tcl '$normal'
@@ -1492,7 +1531,7 @@ echo ""
 
 if [ -f lf_perRes.log ] ; then
     
-    SCORFUNC="$(grep -o -P '.{0,0}SCOREFUNCTION.{0,20}' lf_perRes.log)"
+    SCORFUNC="$(grep -o -P '.{0,0}SCOREFUNCTION.{0,20}' lf_perRes.log | tail -n 1)"
 
 fi
 
@@ -1526,6 +1565,12 @@ Calculated using the $SCORFUNC
 "
 fi
 
+
+############################################################################
+#####mv ADP refined version of last_frame to last_frame_adp.pdb#############
+############################################################################
+
+mv last_frame_adp_real_space_refined.pdb last_frame_adp.pdb
 
 ############################################################################
 ########################Light Clean up/organization#########################
@@ -1569,6 +1614,7 @@ mv *.sc $DIREC2/ 2> /dev/null
 mv *.geo $DIREC2/ 2> /dev/null
 mv $DIREC2/namdinator_stdout.log . 2> /dev/null
 mv CC_map_files.sh $DIREC3/ 2> /dev/null
+mv ${PDB5} $DIREC1/ 2> /dev/null
 EOF
 
 if [ -f *.bpseq ] ; then
@@ -1586,9 +1632,12 @@ sh cleanup.sh
 ############################################################################
 cat<<EOF > remove_all_generated_files.sh
 rm -r log_files/ scripts/ data_files/
-rm last_frame.pdb
-rm last_frame_rsr.pdb
-rm remove_all_generated_files.sh
+rm last_frame.pdb 2> /dev/null
+rm last_frame_adp.pdb 2> /dev/null
+rm last_frame_rsr.pdb 2> /dev/null
+rm ${PDB2}_adp.pdb 2> /dev/null
+rm remove_all_generated_files.sh 2> /dev/null
+rm namdinator_stdout.log 2> /dev/null
 EOF
 
 ############################################################################
