@@ -1,6 +1,12 @@
 # Namdinator
 
-Contact Rune Kidmose at rtk@mbg.au.dk for any questions regarding Namdinator.
+Contact:
+
+Rune Kidmose at: rtk@biomed.au.dk
+or
+Jesper Lykkegaard Karlsen at: jelka@mbg.au.dk
+
+For any questions regarding Namdinator.
 
 Namdinator is a commandline tool, written in BASH, that sets up and runs a MDFF (molecular Dynamics Flexible Fit) simulation in a semi automatic manner, using only the input PDB file and input density file.
 

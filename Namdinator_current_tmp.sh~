@@ -686,7 +686,7 @@ mv -f last_frame_nucleo.pdb last_frame.pdb
 ############################################################################
 
 echo -n "
-Resetting B-factors and Running phenix.real_space_refine group ADP on "$PDBIN" and last_frame.pdb
+Resetting B-factors and Running phenix.real_space_refine group ADP on "$PDB2" .pdb and last_frame.pdb
 "
 
 phenix.pdbtools modify.adp.set_b_iso=$BF ${PDB2}.pdb output.file_name=${PDB2}_adp.pdb > ${PDB2}_adp.log
