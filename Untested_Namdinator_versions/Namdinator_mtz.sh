@@ -438,6 +438,38 @@ fi
 fi
 
 ############################################################################
+############# Testing mtz file for FWT and PHWT column labels  #############
+############################################################################
+
+
+if [ "$MAPEXT" = "mtz" ] ; then
+
+    test1=$(phenix.mtz.dump $MAPIN | grep "^    FWT")
+    test2=$(phenix.mtz.dump $MAPIN | grep "^    PHWT")
+    INPUT_SPG1=$(echo $test1 | awk '{print $1}')
+    INPUT_SPG2=$(echo $test2 | awk '{print $1}')
+  
+    if [ "$INPUT_SPG1" = "" ]; then
+
+	echo '
+ '$MAPIN' needs to contain column FWT'
+	exit 1
+    else
+	echo '
+'$MAPIN' contains column label FWT'
+    fi
+
+    if [ "$INPUT_SPG2" = "" ]; then
+	echo '
+ '$MAPIN' needs to contain column PHWT'
+	exit 1
+    else
+	echo '
+'$MAPIN' contains column label PHWT'
+    fi
+fi
+   
+############################################################################
 ################# Testing if all needed programs are installed #############
 ############################################################################
 
@@ -514,7 +546,7 @@ sed -i 's/UNK/ALA/g' "$PDB1"_altered.pdb
 
 
 ############################################################################
-################# mtz2map and phenix.box #################
+######### Remove Rfree reflection and convert mtz to P1 map ################
 ############################################################################
 
 if [ "$MAPEXT" = "mtz" ] ; then
@@ -522,35 +554,48 @@ if [ "$MAPEXT" = "mtz" ] ; then
     sed -i '/^CRYST1/d' "$PDB1"_altered.pdb 
 
     PDB1="$PDB1"_altered
-    
-cat <<EOF > phenix_mtz2map.sh
-phenix.mtz2map $PDB1.pdb $MAPFILE extension=map prefix=$MAPNAME
+
+    cat <<EOF > phenix_remove_rfree.sh
+phenix.remove_free_from_map $MAPFILE $MAPFILE mtz_out=NoRfree.mtz
 EOF
 
-sh phenix_mtz2map.sh | tee phenix_mtz2map.log &
+    sh phenix_remove_rfree.sh | tee phenix_remove_rfree.log &
 
 spinner $!
 
-cp "$MAPNAME"_2mFo-DFc.map "$MAPNAME"_2mFo-DFc.mrc
+    MAPFILE=NoRfree.mtz
 
-MAPIN="$MAPNAME"_2mFo-DFc.mrc
-MAPFILE="$MAPNAME"_2mFo-DFc.mrc
+    cat <<EOF > phenix_box.sh
+phenix.map_box $PDB1.pdb $MAPFILE output_format=ccp4 output_file_name_prefix=box label=FWT,PHWT
+EOF
+
+sh phenix_box.sh | tee phenix_box.log &
+
+spinner $!
+
+cp box.ccp4 "$MAPNAME".mrc
+cp box.pdb "$PDB1".pdb
+
+MAPIN="$MAPNAME".mrc
+MAPFILE="$MAPNAME".mrc
 
 fi
 
-
 PDB2="$PDB1"
 
+############################################################################
+########### generating list for restraint files and paramters###############
+############################################################################
 
 REST=""$PDB2"-extrabonds.txt "$PDB2"-extrabonds-cis.txt "$PDB2"-extrabonds-chi.txt"
 
-#PARAMS=""${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
 PARAMS=""${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
 
 
 ############################################################################
 ################# Generating NAMD files with MDFF setup#####################
 ############################################################################
+
 echo -n "Running AutoPSF on "$PDB2".pdb
 Generating the following restraint files for "$PDB2.pdb":
 "$REST"
@@ -1648,8 +1693,9 @@ mv CC_map_files.sh $DIREC3/ 2> /dev/null
 mv ${PDB5} $DIREC1/ 2> /dev/null
 mv phenix*.sh $DIREC3/ 2> /dev/null
 mv phenix*.log $DIREC2/ 2> /dev/null
-mv *_2mFo-DFc.map $DIREC1/ 2> /dev/null
-mv *_mFo-DFc.map $DIREC1/ 2> /dev/null
+mv box.pdb $DIREC1/ 2> /dev/null
+mv box.ccp4 $DIREC1/ 2> /dev/null
+mv NoRfree.mtz $DIREC1/ 2> /dev/null
 EOF
 
 if [ -f *.bpseq ] ; then
