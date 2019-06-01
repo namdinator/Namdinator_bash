@@ -62,6 +62,7 @@ if [ "$(which vmd)" != "" ]; then
     fi
 else
     echo "No 'vmd' executable found in PATH"
+    sleep 0.3
     exit 1
 fi
 
@@ -76,6 +77,7 @@ if [ "$(which namd2)" != "" ]; then
 else
     if [ "${NAMDMASTER}" = "" ]; then
 	echo "No 'namd2' executable found in PATH"
+	sleep 0.3
         exit 1
     else
 	NAMDMASTERDIR=${NAMDMASTER}
@@ -84,6 +86,7 @@ else
 fi
 if [ "$(which namd2)" = "" ]; then
     echo "No 'namd2' executable found in PATH"
+    sleep 0.3
     exit 1
 fi
 
@@ -258,6 +261,7 @@ if [[ "$PHENIXRS" = "1" ]] && [[ "${PHENIXMASTERDIR}" = "" ]] ; then
        echo "
 Phenix real space refine was invoked using the -x flag, but it seems Phenix is either not installed or not installed correctly. 
 "
+       sleep 0.3
        exit 1
 
 fi
@@ -323,6 +327,7 @@ if [[ "$PDBCOUNTDOT" -gt 1 ]]  ||  [[ "$MAPCOUNTDOT" -gt 1 ]] ; then
    echo "
 Namdinator does not support input files with multiple \".\" in them. Please rename input files so they only contain one \".\" per file
 "
+   sleep 0.3
    exit 1
 fi
 
@@ -366,30 +371,53 @@ Instead of editing the Namdinator script, you can simply change many of the stan
 sleep 0.3
    exit 1
 
-elif [ "$PDBEXT" != "pdb" ]; then
- echo "You have to input a .pdb file!"
-     exit 1
- 
-elif [ "$MAPEXT" != "mrc" ] && [ "$MAPEXT" != "mtz" ]; then 
- echo "You have to input a .mrc or a .mtz file!"
-     exit 1
 
-elif [ "$PDBIN" = "" ] && [ "$MAPIN" != "" ]; then
-    echo "You must input a PDB file also!"
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "" ]; then
+    echo "-p needs to be a .pdb file!"
+    sleep 0.3
     exit 1
 
-elif [ "$PDBIN" != "" ] && [ "$MAPIN" = "" ]; then
-    echo "You must input a MRC or MTZ file also!"
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" != "mrc" ] && [ "$MAPEXT" != "mtz" ]; then
+    echo "-m needs to be a .mrc or a .mtz file!"
+    sleep 0.3
     exit 1
-    
-elif [ "$PDBIN" != "" ] && [ "$MAPIN" = "" ]; then
-    echo "You must input a MAP or MTZ file also!"
+
+
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" = "mrc" ]; then
+    echo "A PDB input file is missing!"
+    sleep 0.3
     exit 1
+
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" = "mtz" ]; then
+    echo "A PDB input file is missing!"
+    sleep 0.3
+    exit 1
+
+elif [ "$MAPEXT" = "" ] && [ "$PDBEXT" = "pdb" ]; then
+    echo "A mrc or mtz input file is missing!"
+    sleep 0.3
+    exit 1
+
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "mrc" ]; then
+    echo "-p needs to be a .pdb file!"
+    sleep 0.3
+    exit 1
+
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "mtz" ]; then
+    echo "-p needs to be a .pdb file!"
+    sleep 0.3
+    exit 1
+
+elif [ "$MAPEXT" != "mrc" ] && [ "$MAPEXT" != "mtz" ]; then
+    echo "-m needs to a .mrc or a .mtz file!"
+    sleep 0.3
+         exit 1
 
 fi
 
 if [ "$RES" = "" ]; then
     echo "You must input the resolution of the map, using the -r flag!"
+    sleep 0.3
     exit 1
 fi
 
@@ -431,6 +459,7 @@ INPUT_SPG=$(echo $test | awk '{print $4}')
 
 if [ "$INPUT_SPG" \> "1" ]; then
     echo 'Space group of '$MAPIN' is '${INPUT_SPG}', but must be 1 (P1)'
+    sleep 0.3
     exit 1
 else
     echo 'Space group of '$MAPIN' is 1 (P1)'
@@ -453,6 +482,7 @@ if [ "$MAPEXT" = "mtz" ] ; then
 
 	echo '
  '$MAPIN' needs to contain column FWT'
+	sleep 0.3
 	exit 1
     else
 	echo '
@@ -462,6 +492,7 @@ if [ "$MAPEXT" = "mtz" ] ; then
     if [ "$INPUT_SPG2" = "" ]; then
 	echo '
  '$MAPIN' needs to contain column PHWT'
+	sleep 0.3
 	exit 1
     else
 	echo '
@@ -494,6 +525,7 @@ else
     echo -n '
 VMD is not installed on this machine
 '
+    sleep 0.3
     exit 1
 fi
 
@@ -507,6 +539,7 @@ else
     echo -n '
 NAMD2 is not installed on this machine
 '
+    sleep 0.3
     exit 1
 fi
 
@@ -521,6 +554,7 @@ else
     echo -n '
 PHENIX is not installed on this machine
 '
+    sleep 0.3
     exit 1
 fi
 
@@ -556,7 +590,7 @@ if [ "$MAPEXT" = "mtz" ] ; then
     PDB1="$PDB1"_altered
 
     cat <<EOF > phenix_remove_rfree.sh
-phenix.remove_free_from_map $MAPFILE $MAPFILE mtz_out=NoRfree.mtz
+phenix.remove_free_from_map $MAPFILE $MAPFILE mtz_out=NoRfree.mtz 
 EOF
 
     sh phenix_remove_rfree.sh | tee phenix_remove_rfree.log &
@@ -660,6 +694,7 @@ The file "$PDB2"_autopsf.psf does not exsist!
        echo -n "
 Terminating Namdinator!
 "
+       sleep 0.3
        exit 1
 fi
 
@@ -673,7 +708,7 @@ if grep -q 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.l
 NAMD2 have unfortunately stopped prematurely, see the below Error message for further details or consult the NAMD2 log file:
 '
     grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.log;
-
+    sleep 0.3
     exit 1
 fi
 
@@ -803,6 +838,7 @@ sed -i '/^CRYST1/d; /^SCALE[1-3]/d' last_frame_bf_real_space_refined.pdb
  else 
     echo "last_frame_bf_real_space_refined.pdb is not there"
     echo "failed" > done.txt
+    sleep 0.3
     exit 1
  fi
 fi
@@ -1696,6 +1732,7 @@ mv phenix*.log $DIREC2/ 2> /dev/null
 mv box.pdb $DIREC1/ 2> /dev/null
 mv box.ccp4 $DIREC1/ 2> /dev/null
 mv NoRfree.mtz $DIREC1/ 2> /dev/null
+mv remove_free_from_map_params.eff $DIREC3/ 2> /dev/null
 EOF
 
 if [ -f *.bpseq ] ; then
