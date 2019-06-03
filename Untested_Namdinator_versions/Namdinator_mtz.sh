@@ -848,16 +848,13 @@ fi
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
-# vmd CCC check only accepts maps in mrc format
-if [ "${MAPEXT}" = "map" ]; then
-   ln -s ${MAPIN} ${MAPNAME}.mrc
-   MAPVMD="${MAPNAME}.mrc"
- else
-   MAPVMD="${MAPIN}" 
-fi
+if [ "$MAPEXT" = "mtz" ]; then
 
+    echo -n "
+Can not calculate Global CC values for maps originating from a MTZ file with spacegroups different than 1 (P1)
+"
 
-if [ "$PHENIXRS" = "1" ]; then
+    if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > CC_map_files.sh
 phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
@@ -868,7 +865,71 @@ EOF
 
 
 echo -n "
-Calculating Phenix CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
+Calculating Local CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+
+    else
+
+cat<<EOF > CC_map_files.sh
+
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
+
+EOF
+
+
+echo -n "
+Calculating Local CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+    fi
+
+cat<<EOF > CCC_check.tcl
+package require mdff
+package require multiplot
+mol new ${PDB2}_autopsf.psf
+mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+set incre [ expr $NUMS/1000]
+for {set i 0} {\$i < \$incre} {incr i 1} { 
+         [atomselect top all frame \$i] writepdb frame\$i.pdb 
+ } 
+EOF
+
+echo -n "
+Exporting PDB file for every 1000 steps of the trajectory simulation-step1.dcd
+"
+
+vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
+
+spinner $!
+    
+else
+
+# vmd CCC check only accepts maps in mrc format
+    if [ "${MAPEXT}" = "map" ]; then
+   ln -s ${MAPIN} ${MAPNAME}.mrc
+   MAPVMD="${MAPNAME}.mrc"
+    else
+   MAPVMD="${MAPIN}" 
+    fi
+
+    if [ "$PHENIXRS" = "1" ]; then
+
+cat<<EOF > CC_map_files.sh
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc last_frame_rsr.pdb $MAPIN resolution=$RES > CC_rsr.log 
+
+EOF
+
+
+echo -n "
+Calculating Local CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
 "
 sh CC_map_files.sh > cc_map_files.log &
 
@@ -897,7 +958,7 @@ for {set i 0} {\$i < \$incre} {incr i 1} {
 EOF
 
 echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
+Calculating the Global CC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
 "
 
 vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
@@ -905,7 +966,7 @@ vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 spinner $!
 
 
-else
+    else
 
 cat<<EOF > CC_map_files.sh
 
@@ -916,7 +977,7 @@ EOF
 
 
 echo -n "
-Calculating Phenix CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
+Calculating Local CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
 "
 sh CC_map_files.sh > cc_map_files.log &
 
@@ -943,19 +1004,26 @@ for {set i 0} {\$i < \$incre} {incr i 1} {
 EOF
 
 echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
+Calculating Global CC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
 "
 
 vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 
 spinner $!
      
+    fi
 fi
 ############################################################################
 ###############Generating Gnuplots of CCC from all frames###################
 ############################################################################
 
+if [ "$MAPEXT" = "mtz" ]; then
 
+    echo -n "
+Can not calculate Global CC values for individual frames if input map originates from a mtz with a spacegroup different than 1 (P1)
+"
+
+    else
 cat<<EOF > gnuplot_dumb.sh
 set terminal dumb 110 35
 unset xtics
@@ -970,7 +1038,7 @@ plot "ccc_frames.txt" using 1:2 with lines notitle
 replot
 EOF
 
-
+fi
 
 ############################################################################
 ###################### Clash score calculations ############################
@@ -1003,6 +1071,7 @@ chmod +x clash_allframes.sh
 echo -n "
 Calculating Clashscores for all individual frames from the trajectory
 "
+
 
 ############################################################################
 ########## Generating Gnuplots of Clash scores from all frames #############
@@ -1343,6 +1412,12 @@ done
 ############################################################################
 #############Creating plots of CCC and Clash from all frames################
 ############################################################################
+if [ "$MAPEXT" = "mtz" ]; then
+
+    echo -n "
+Can not calculate global CC values for individual frames if input map originates from a mtz with a spacegroup different than 1 (P1)
+"
+else
 
 echo -n '
 Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
@@ -1354,6 +1429,7 @@ Writing a prettified version of the above plot as a PNG (CCC_all_frames.png).
 '
 cat ccc_frames.txt | gnuplot gnuplot_png.sh
 
+fi
 
 echo -n '
 Plotting the Clashscores for every '$NUMS'/1000 frame of the trajectory simulation-step1.dcd'
@@ -1364,6 +1440,7 @@ echo -n '
 Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
 '
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
+
 
 ############################################################################
 ################ extracting Per Residue Rosetta Scores #####################
@@ -1404,9 +1481,9 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
     
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null) 
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt 2> /dev/null)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1451,8 +1528,8 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
 CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
@@ -1497,9 +1574,9 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt 2> /dev/null)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1540,8 +1617,8 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
     
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
 CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
