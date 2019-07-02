@@ -594,7 +594,8 @@ Terminating Namdinator!
        sleep 0.3
        exit 1
 fi
-
+   
+    
 ############################################################################
 ############## Stop script from continuing if NAMD2 fails ##################
 ############################################################################
@@ -607,6 +608,16 @@ NAMD2 have unfortunately stopped prematurely, see the below Error message for fu
     grep -B 4 'ERROR: Exiting prematurely; see error messages above.' NAMD2_step1.log;
     sleep 0.3
     exit 1
+fi
+
+if grep -q "FATAL ERROR:" NAMD2_step1.log; then
+
+       echo -n "
+Terminating Namdinator due to a Fatal error in NAMD2
+"
+       grep "FATAL ERROR:" NAMD2_step1.log
+       sleep 0.3
+       exit 1
 fi
 
 ############################################################################
@@ -646,6 +657,14 @@ if grep -F 'End of program' NAMD2_step1.log >/dev/null 2>&1 ; then
     vmd -dispdev text -eofexit <writepdb.tcl> writepdb.log
 
 fi
+
+if [ ! -f last_frame.pdb ] ;then
+       echo -n "
+Terminating Namdinator as last_frame.pdb does not exist!
+"
+    exit 1
+fi
+
 
 ############################################################################
 ####################Remove hydrogens from last frame PDB####################
