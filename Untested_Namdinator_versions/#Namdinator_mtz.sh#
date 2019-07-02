@@ -53,7 +53,6 @@ BF=20
 ######################### Loading the environments ######################### 
 ############################################################################
 
-
 # check if vmd is in PATH and set VMDMASTERDIR
 if [ "$(which vmd)" != "" ]; then
     if [ "${VMDMASTER}" = "" ]; then
@@ -115,6 +114,8 @@ fi
 
 
 LD_LIBRARY_PATH=${VMDMASTERDIR}:${LD_LIBRARY_PATH}
+
+
 
 bold=$(tput bold)
 normal=$(tput sgr0)
@@ -259,7 +260,6 @@ if [[ "$PHENIXRS" = "1" ]] && [[ "${PHENIXMASTERDIR}" = "" ]] ; then
 
        echo "
 Phenix real space refine was invoked using the -x flag, but it seems Phenix is either not installed or not installed correctly. 
-
 "
        sleep 0.3
        exit 1
@@ -367,23 +367,51 @@ Instead of editing the Namdinator script, you can simply change many of the stan
       -c Number or macro cycles to run during phenix.real_space refine (default is 5).
       -i If set the simulation will use implicit solvent (Generalized Born Implicit Solvent) instead of default vacuum. NB: MDFF GBIS is about seven times slower than in vacuo MDFF, but does yield better results (geometry of output models). 
 "
+
 sleep 0.3
    exit 1
 
-elif [ "$PDBEXT" != "pdb" ]; then
- echo "You have to input a .pdb file!"
- sleep 0.3
- exit 1
 
-elif [ "$PDBIN" = "" ] && [ "$MAPIN" != "" ]; then
-    echo "You must input a PDB file also!"
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "" ]; then
+    echo "-p needs to be a .pdb file!"
     sleep 0.3
     exit 1
 
-elif [ "$PDBIN" != "" ] && [ "$MAPIN" = "" ]; then
-    echo "You must input a MAP file also!"
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" != "mrc" ] && [ "$MAPEXT" != "mtz" ]; then
+    echo "-m needs to be a .mrc or a .mtz file!"
     sleep 0.3
     exit 1
+
+
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" = "mrc" ]; then
+    echo "A PDB input file is missing!"
+    sleep 0.3
+    exit 1
+
+elif [ "$PDBEXT" = "" ] && [ "$MAPEXT" = "mtz" ]; then
+    echo "A PDB input file is missing!"
+    sleep 0.3
+    exit 1
+
+elif [ "$MAPEXT" = "" ] && [ "$PDBEXT" = "pdb" ]; then
+    echo "A mrc or mtz input file is missing!"
+    sleep 0.3
+    exit 1
+
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "mrc" ]; then
+    echo "-p needs to be a .pdb file!"
+    sleep 0.3
+    exit 1
+
+elif [ "$PDBEXT" != "pdb" ] && [ "$MAPEXT" = "mtz" ]; then
+    echo "-p needs to be a .pdb file!"
+    sleep 0.3
+    exit 1
+
+elif [ "$MAPEXT" != "mrc" ] && [ "$MAPEXT" != "mtz" ]; then
+    echo "-m needs to a .mrc or a .mtz file!"
+    sleep 0.3
+         exit 1
 
 fi
 
@@ -424,6 +452,7 @@ fi
 ################# Testing if input map is in P1 spacegroup #################
 ############################################################################
 
+if [ "$MAPEXT" = "mrc" ] ; then
 test=$(phenix.show_map_info $MAPIN | grep "space group number:")
 
 INPUT_SPG=$(echo $test | awk '{print $4}')
@@ -435,9 +464,42 @@ if [ "$INPUT_SPG" \> "1" ]; then
 else
     echo 'Space group of '$MAPIN' is 1 (P1)'
 fi     
+fi
+
+############################################################################
+############# Testing mtz file for FWT and PHWT column labels  #############
+############################################################################
 
 
+if [ "$MAPEXT" = "mtz" ] ; then
 
+    test1=$(phenix.mtz.dump $MAPIN | grep "^    FWT")
+    test2=$(phenix.mtz.dump $MAPIN | grep "^    PHWT")
+    INPUT_SPG1=$(echo $test1 | awk '{print $1}')
+    INPUT_SPG2=$(echo $test2 | awk '{print $1}')
+  
+    if [ "$INPUT_SPG1" = "" ]; then
+
+	echo '
+ '$MAPIN' needs to contain column FWT'
+	sleep 0.3
+	exit 1
+    else
+	echo '
+'$MAPIN' contains column label FWT'
+    fi
+
+    if [ "$INPUT_SPG2" = "" ]; then
+	echo '
+ '$MAPIN' needs to contain column PHWT'
+	sleep 0.3
+	exit 1
+    else
+	echo '
+'$MAPIN' contains column label PHWT'
+    fi
+fi
+   
 ############################################################################
 ################# Testing if all needed programs are installed #############
 ############################################################################
@@ -516,17 +578,58 @@ fi
 
 sed -i 's/UNK/ALA/g' "$PDB1"_altered.pdb
 
-PDB2="$PDB1"_altered
+
+############################################################################
+######### Remove Rfree reflection and convert mtz to P1 map ################
+############################################################################
+
+if [ "$MAPEXT" = "mtz" ] ; then
+
+    sed -i '/^CRYST1/d' "$PDB1"_altered.pdb 
+
+    PDB1="$PDB1"_altered
+
+    cat <<EOF > phenix_remove_rfree.sh
+phenix.remove_free_from_map $MAPFILE $MAPFILE mtz_out=NoRfree.mtz 
+EOF
+
+    sh phenix_remove_rfree.sh | tee phenix_remove_rfree.log &
+
+spinner $!
+
+    MAPFILE=NoRfree.mtz
+
+    cat <<EOF > phenix_box.sh
+phenix.map_box $PDB1.pdb $MAPFILE output_format=ccp4 output_file_name_prefix=box label=FWT,PHWT
+EOF
+
+sh phenix_box.sh | tee phenix_box.log &
+
+spinner $!
+
+cp box.ccp4 "$MAPNAME".mrc
+cp box.pdb "$PDB1".pdb
+
+MAPIN="$MAPNAME".mrc
+MAPFILE="$MAPNAME".mrc
+
+fi
+
+PDB2="$PDB1"
+
+############################################################################
+########### generating list for restraint files and paramters###############
+############################################################################
 
 REST=""$PDB2"-extrabonds.txt "$PDB2"-extrabonds-cis.txt "$PDB2"-extrabonds-chi.txt"
 
-#PARAMS=""${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTER}"/lib/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
 PARAMS=""${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_lipid.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_prot.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_carb.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/toppar_water_ions_namd.str "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_cgenff.prm "${VMDMASTERDIR}"/plugins/noarch/tcl/readcharmmpar1.3/par_all36_na.prm"
 
 
 ############################################################################
 ################# Generating NAMD files with MDFF setup#####################
 ############################################################################
+
 echo -n "Running AutoPSF on "$PDB2".pdb
 Generating the following restraint files for "$PDB2.pdb":
 "$REST"
@@ -745,16 +848,13 @@ fi
 ################## Cross correlation coefficient check #####################
 ############################################################################
 
-# vmd CCC check only accepts maps in mrc format
-if [ "${MAPEXT}" = "map" ]; then
-   ln -s ${MAPIN} ${MAPNAME}.mrc
-   MAPVMD="${MAPNAME}.mrc"
- else
-   MAPVMD="${MAPIN}" 
-fi
+if [ "$MAPEXT" = "mtz" ]; then
 
+    echo -n "
+Can not calculate Global CC values for maps originating from a MTZ file with spacegroups different than 1 (P1)
+"
 
-if [ "$PHENIXRS" = "1" ]; then
+    if [ "$PHENIXRS" = "1" ]; then
 
 cat<<EOF > CC_map_files.sh
 phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
@@ -765,7 +865,71 @@ EOF
 
 
 echo -n "
-Calculating Phenix CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
+Calculating Local CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+
+    else
+
+cat<<EOF > CC_map_files.sh
+
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
+
+EOF
+
+
+echo -n "
+Calculating Local CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
+"
+sh CC_map_files.sh > cc_map_files.log &
+
+spinner $!
+    fi
+
+cat<<EOF > CCC_check.tcl
+package require mdff
+package require multiplot
+mol new ${PDB2}_autopsf.psf
+mol addfile simulation-step1.dcd type dcd first 0 last -1 waitfor all top
+set incre [ expr $NUMS/1000]
+for {set i 0} {\$i < \$incre} {incr i 1} { 
+         [atomselect top all frame \$i] writepdb frame\$i.pdb 
+ } 
+EOF
+
+echo -n "
+Exporting PDB file for every 1000 steps of the trajectory simulation-step1.dcd
+"
+
+vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
+
+spinner $!
+    
+else
+
+# vmd CCC check only accepts maps in mrc format
+    if [ "${MAPEXT}" = "map" ]; then
+   ln -s ${MAPIN} ${MAPNAME}.mrc
+   MAPVMD="${MAPNAME}.mrc"
+    else
+   MAPVMD="${MAPIN}" 
+    fi
+
+    if [ "$PHENIXRS" = "1" ]; then
+
+cat<<EOF > CC_map_files.sh
+phenix.map_model_cc ${PDB5} $MAPIN resolution=$RES > CC_input.log 
+phenix.map_model_cc ${PDB4} $MAPIN resolution=$RES > CC_lf.log 
+phenix.map_model_cc last_frame_rsr.pdb $MAPIN resolution=$RES > CC_rsr.log 
+
+EOF
+
+
+echo -n "
+Calculating Local CC values for the input PDB and output PDB files vs "$MAPNAME"."$MAPEXT"
 "
 sh CC_map_files.sh > cc_map_files.log &
 
@@ -794,7 +958,7 @@ for {set i 0} {\$i < \$incre} {incr i 1} {
 EOF
 
 echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
+Calculating the Global CC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
 "
 
 vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
@@ -802,7 +966,7 @@ vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 spinner $!
 
 
-else
+    else
 
 cat<<EOF > CC_map_files.sh
 
@@ -813,7 +977,7 @@ EOF
 
 
 echo -n "
-Calculating Phenix CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
+Calculating Local CC values for the input PDB and the output PDB file vs "$MAPNAME"."$MAPEXT"
 "
 sh CC_map_files.sh > cc_map_files.log &
 
@@ -840,19 +1004,26 @@ for {set i 0} {\$i < \$incre} {incr i 1} {
 EOF
 
 echo -n "
-Calculating the CCC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
+Calculating Global CC between the model from each frame of the trajectory simulation-step1.dcd and "$MAPFILE"
 "
 
 vmd -dispdev text -eofexit <CCC_check.tcl> CCC_check.log &
 
 spinner $!
      
+    fi
 fi
 ############################################################################
 ###############Generating Gnuplots of CCC from all frames###################
 ############################################################################
 
+if [ "$MAPEXT" = "mtz" ]; then
 
+    echo -n "
+Can not calculate Global CC values for individual frames if input map originates from a mtz with a spacegroup different than 1 (P1)
+"
+
+    else
 cat<<EOF > gnuplot_dumb.sh
 set terminal dumb 110 35
 unset xtics
@@ -867,7 +1038,7 @@ plot "ccc_frames.txt" using 1:2 with lines notitle
 replot
 EOF
 
-
+fi
 
 ############################################################################
 ###################### Clash score calculations ############################
@@ -900,6 +1071,7 @@ chmod +x clash_allframes.sh
 echo -n "
 Calculating Clashscores for all individual frames from the trajectory
 "
+
 
 ############################################################################
 ########## Generating Gnuplots of Clash scores from all frames #############
@@ -1240,6 +1412,12 @@ done
 ############################################################################
 #############Creating plots of CCC and Clash from all frames################
 ############################################################################
+if [ "$MAPEXT" = "mtz" ]; then
+
+    echo -n "
+Can not calculate global CC values for individual frames if input map originates from a mtz with a spacegroup different than 1 (P1)
+"
+else
 
 echo -n '
 Plotting the CCC for every frame of the trajectory simulation-step1.dcd'
@@ -1251,6 +1429,7 @@ Writing a prettified version of the above plot as a PNG (CCC_all_frames.png).
 '
 cat ccc_frames.txt | gnuplot gnuplot_png.sh
 
+fi
 
 echo -n '
 Plotting the Clashscores for every '$NUMS'/1000 frame of the trajectory simulation-step1.dcd'
@@ -1261,6 +1440,7 @@ echo -n '
 Writing a prettified version of the above plot as a PNG (clash_all_frames.png).
 '
 cat all_frames_clash.txt | gnuplot gnuplot_clash_png.sh
+
 
 ############################################################################
 ################ extracting Per Residue Rosetta Scores #####################
@@ -1301,9 +1481,9 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
     
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null) 
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt 2> /dev/null)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1348,8 +1528,8 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
 CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
@@ -1394,9 +1574,9 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3=$(grep "CC_mask" CC_rsr.log | awk '{print $3}')
 
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
-CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
+CCC3=$(awk '{print $2}' ccc_lastframe_rsr.txt 2> /dev/null)
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
 claLF=$(awk 'END {print $NF}' clash_last_frame.log)
@@ -1437,8 +1617,8 @@ PCCC1=$(grep "CC_mask" CC_input.log | awk '{print $3}')
 PCCC2=$(grep "CC_mask" CC_lf.log | awk '{print $3}')    
 PCCC3="n/a"
     
-CCC1=$(awk '{print $2}' ccc_input.txt)
-CCC2=$(awk '{print $2}' ccc_lastframe.txt)
+CCC1=$(awk '{print $2}' ccc_input.txt 2> /dev/null)
+CCC2=$(awk '{print $2}' ccc_lastframe.txt 2> /dev/null)
 CCC3="n/a"
      
 claINP=$(awk 'END {print $NF}' clash_"$PDB2".log)
@@ -1624,6 +1804,12 @@ mv *.geo $DIREC2/ 2> /dev/null
 mv $DIREC2/namdinator_stdout.log . 2> /dev/null
 mv CC_map_files.sh $DIREC3/ 2> /dev/null
 mv ${PDB5} $DIREC1/ 2> /dev/null
+mv phenix*.sh $DIREC3/ 2> /dev/null
+mv phenix*.log $DIREC2/ 2> /dev/null
+mv box.pdb $DIREC1/ 2> /dev/null
+mv box.ccp4 $DIREC1/ 2> /dev/null
+mv NoRfree.mtz $DIREC1/ 2> /dev/null
+mv remove_free_from_map_params.eff $DIREC3/ 2> /dev/null
 EOF
 
 if [ -f *.bpseq ] ; then
