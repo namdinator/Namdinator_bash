@@ -670,9 +670,9 @@ fi
 ####################Remove hydrogens from last frame PDB####################
 ############################################################################
 echo -n '
-Renaming all HSD/HSE/HSP residues in last_frame.pdb back to HIS, all CD ILE back to CD1 ILE, O1P/O2P to OP1/OP2 for nucleotides and OT1/OT2 to O and OXT for terminal residues
+Renaming all HSD/HSE/HSP residues in last_frame.pdb back to HIS, all CD ILE back to CD1 ILE and OT1/OT2 to O and OXT for terminal residues
 '
-sed -e 's/OT1/O  /g; s/OT2/OXT/g; s/O1P/OP1/g; s/O2P/OP2/g' last_frame.pdb > last_frame_OXT.pdb
+sed -e 's/OT1/O  /g; s/OT2/OXT/g' last_frame.pdb > last_frame_OXT.pdb
 
 while [ ! -f last_frame_OXT.pdb ] ; do
 
@@ -727,6 +727,17 @@ phenix.pdbtools modify.adp.set_b_iso=$BF last_frame.pdb output.file_name=last_fr
 phenix.real_space_refine refinement.run=adp resolution=${RES} ${PDB2}_adp.pdb ${MAPIN} output.file_name_prefix=${PDB2}_adp > input_rsr.log &
 phenix.real_space_refine refinement.run=adp resolution=${RES} last_frame_bf.pdb ${MAPIN} output.file_name_prefix=last_frame_adp > lf_rsr.log &
 
+
+if grep -q 'Sorry: Unit cell parameter is zero or negative.' input_rsr.log; then
+
+    echo -n '
+PHENIX real space refine have found an error, please check unit cell parameters for input map.
+'
+    grep -B 4 'Sorry: Unit cell parameter is zero or negative.' input_rsr.log;
+    sleep 0.3
+    exit 1
+fi
+    
 spinner $!
 
 PDB4=last_frame_adp_real_space_refined.pdb
